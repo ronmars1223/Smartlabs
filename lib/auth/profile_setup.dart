@@ -5,7 +5,7 @@ import 'package:firebase_database/firebase_database.dart';
 class ProfileSetupPage extends StatefulWidget {
   final String userId;
 
-  const ProfileSetupPage({Key? key, required this.userId}) : super(key: key);
+  const ProfileSetupPage({super.key, required this.userId});
 
   @override
   State<ProfileSetupPage> createState() => _ProfileSetupPageState();
@@ -19,6 +19,9 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
   @override
   void initState() {
     super.initState();
+    // Set the correct Firebase database URL
+    FirebaseDatabase.instance.databaseURL =
+        'https://smartlab-e2107-default-rtdb.asia-southeast1.firebasedatabase.app';
     // Initialize database reference
     _database = FirebaseDatabase.instance.ref();
   }
@@ -41,11 +44,12 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
 
       _showSnackBar("Profile setup complete!");
 
-      // Navigate to HomePage instead of role-specific dashboards
+      // Navigate to HomePage with refresh flag
       if (mounted) {
-        Navigator.pushReplacement(
+        Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (context) => const HomePage()),
+          MaterialPageRoute(builder: (context) => HomePage(forceReload: true)),
+          (route) => false, // Remove all previous routes
         );
       }
     } catch (e) {
@@ -68,7 +72,18 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: const Text('Complete Your Profile'),
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Image.asset('img/logo.png', width: 32, height: 32),
+            const SizedBox(width: 8),
+            const Text(
+              "SMARTLAB",
+              style: TextStyle(fontWeight: FontWeight.bold, letterSpacing: 1.2),
+            ),
+          ],
+        ),
+        centerTitle: true,
         backgroundColor: const Color(0xFF2AA39F),
         foregroundColor: Colors.white,
         elevation: 0,

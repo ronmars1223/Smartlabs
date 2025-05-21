@@ -6,11 +6,11 @@ class AppBottomNavBar extends StatelessWidget {
   final String userRole;
 
   const AppBottomNavBar({
-    Key? key,
+    super.key,
     required this.currentIndex,
     required this.onTap,
     required this.userRole,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

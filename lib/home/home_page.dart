@@ -7,7 +7,9 @@ import 'profile_page.dart';
 import 'request_page.dart'; // Import the request page
 
 class HomePage extends StatefulWidget {
-  const HomePage({super.key});
+  final bool forceReload;
+
+  const HomePage({super.key, this.forceReload = false});
 
   @override
   State<HomePage> createState() => _HomePageState();
@@ -28,6 +30,13 @@ class _HomePageState extends State<HomePage> {
     // Set the correct Firebase database URL
     FirebaseDatabase.instance.databaseURL =
         'https://smartlab-e2107-default-rtdb.asia-southeast1.firebasedatabase.app';
+
+    // If forceReload is true, clear any cached data
+    if (widget.forceReload) {
+      _isLoading = true;
+      // Add any other state resets here if needed
+    }
+
     _loadUserData();
   }
 
@@ -55,32 +64,47 @@ class _HomePageState extends State<HomePage> {
   }
 
   Future<void> _loadUserData() async {
+    // Always set loading to true when forceReload is true
+    if (widget.forceReload && mounted) {
+      setState(() => _isLoading = true);
+    }
+
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) return;
 
     try {
-      final snapshot =
-          await FirebaseDatabase.instance
-              .ref()
-              .child('users')
-              .child(user.uid)
-              .get();
+      // Add a small delay if force reloading to ensure database has updated
+      if (widget.forceReload) {
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+
+      // Create a fresh database reference
+      final databaseRef = FirebaseDatabase.instance.ref();
+
+      // Force refresh the data by disabling cache with serverTimeSync
+      final snapshot = await databaseRef.child('users').child(user.uid).get();
 
       if (snapshot.exists) {
         final data = snapshot.value as Map<dynamic, dynamic>;
-        setState(() {
-          _userName = data['name'] ?? 'User';
-          _userRole = data['role'] ?? 'Unknown';
-          _isLoading = false;
-        });
+        if (mounted) {
+          setState(() {
+            _userName = data['name'] ?? 'User';
+            _userRole = data['role'] ?? 'Unknown';
+            _isLoading = false;
+          });
+        }
         _initPages(); // Initialize pages after loading user data
       } else {
-        setState(() => _isLoading = false);
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
         _initPages();
       }
     } catch (e) {
       print('Error loading user data: $e');
-      setState(() => _isLoading = false);
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
       _initPages();
     }
   }
@@ -108,7 +132,22 @@ class _HomePageState extends State<HomePage> {
       ),
       body:
           _isLoading
-              ? const Center(child: CircularProgressIndicator())
+              ? const Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(),
+                    SizedBox(height: 16),
+                    Text(
+                      "Loading your profile...",
+                      style: TextStyle(
+                        color: Color(0xFF2AA39F),
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
+              )
               : _pages[_currentIndex], // Show current page based on tab index
       bottomNavigationBar:
           _isLoading
