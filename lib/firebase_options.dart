@@ -51,7 +51,7 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions android = FirebaseOptions(
     apiKey: 'AIzaSyB6pXh0wrPfOz6z0cy8iRm9dYkEjR3ptQ0',
-    appId: '1:1025540647070:android:f862411e5a533875c9738f',
+    appId: '1:1025540647070:android:410e53820c12b86ec9738f',
     messagingSenderId: '1025540647070',
     projectId: 'smartlab-e2107',
     storageBucket: 'smartlab-e2107.firebasestorage.app',
@@ -59,25 +59,25 @@ class DefaultFirebaseOptions {
 
   static const FirebaseOptions ios = FirebaseOptions(
     apiKey: 'AIzaSyAmSZ-XXLzs-c3OfaVDlICo1qv2GsOvxpU',
-    appId: '1:1025540647070:ios:9c76950ff78d827bc9738f',
+    appId: '1:1025540647070:ios:48daf25efd621969c9738f',
     messagingSenderId: '1025540647070',
     projectId: 'smartlab-e2107',
     storageBucket: 'smartlab-e2107.firebasestorage.app',
-    iosBundleId: 'com.example.smartlab',
+    iosBundleId: 'com.example.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
     apiKey: 'AIzaSyAmSZ-XXLzs-c3OfaVDlICo1qv2GsOvxpU',
-    appId: '1:1025540647070:ios:9c76950ff78d827bc9738f',
+    appId: '1:1025540647070:ios:48daf25efd621969c9738f',
     messagingSenderId: '1025540647070',
     projectId: 'smartlab-e2107',
     storageBucket: 'smartlab-e2107.firebasestorage.app',
-    iosBundleId: 'com.example.smartlab',
+    iosBundleId: 'com.example.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
     apiKey: 'AIzaSyDsoxuTXhtOyQQIWZNDpyiWfOw6XgK5F8Y',
-    appId: '1:1025540647070:web:d008b7b570f1fd9dc9738f',
+    appId: '1:1025540647070:web:b4aaee05799d60b9c9738f',
     messagingSenderId: '1025540647070',
     projectId: 'smartlab-e2107',
     authDomain: 'smartlab-e2107.firebaseapp.com',
