@@ -6,8 +6,6 @@ import 'package:flutter/foundation.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 
-import 'equipment_dialogs.dart';
-
 class EquipmentPage extends StatefulWidget {
   const EquipmentPage({super.key});
 
@@ -79,66 +77,19 @@ class _EquipmentPageState extends State<EquipmentPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header with Add Equipment button for teachers
-          Row(
+          // Header (removed Add Equipment button)
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Laboratory Equipment',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Browse and reserve equipment for your experiments',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: Colors.grey.shade600,
-                      ),
-                    ),
-                  ],
-                ),
+              const Text(
+                'Laboratory Equipment',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
               ),
-              if (_userRole == 'teacher')
-                ElevatedButton.icon(
-                  onPressed:
-                      () => EquipmentDialogs.showAddEquipmentDialog(
-                        context,
-                        onAdd: (category) async {
-                          try {
-                            await EquipmentService.addCategory(category);
-                            _loadEquipmentData();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  'Added ${category.title} category',
-                                ),
-                              ),
-                            );
-                          } catch (e) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Failed to add category: $e'),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                  icon: const Icon(Icons.add),
-                  label: const Text('Add'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF52B788),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
+              const SizedBox(height: 8),
+              Text(
+                'Browse and reserve equipment for your experiments',
+                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+              ),
             ],
           ),
           const SizedBox(height: 24),
@@ -444,175 +395,70 @@ class _EquipmentPageState extends State<EquipmentPage> {
   }
 
   Widget _buildEquipmentCategory(EquipmentCategory category) {
-    return GestureDetector(
-      onLongPress:
-          _userRole == 'teacher'
-              ? () => _showDeleteCategoryConfirmation(category)
-              : null,
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 16),
-        elevation: 2,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: category.color.withOpacity(0.1),
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: category.color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(category.icon, color: category.color, size: 28),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        category.title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Available: ${category.availableCount}',
+                        style: TextStyle(
+                          color: Colors.green.shade700,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                ElevatedButton(
+                  onPressed: () => _showEquipmentItems(category),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2AA39F),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: Icon(category.icon, color: category.color, size: 28),
                   ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          category.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'Available: ${category.availableCount}',
-                          style: TextStyle(
-                            color: Colors.green.shade700,
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  if (_userRole == 'teacher')
-                    IconButton(
-                      icon: const Icon(Icons.edit),
-                      onPressed:
-                          () => EquipmentDialogs.showEditEquipmentDialog(
-                            context,
-                            category: category,
-                            onEdit: (newName) async {
-                              try {
-                                await EquipmentService.updateCategory(
-                                  category.id,
-                                  {'title': newName},
-                                );
-                                _loadEquipmentData();
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text('Updated to $newName'),
-                                  ),
-                                );
-                              } catch (e) {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      'Failed to update category: $e',
-                                    ),
-                                  ),
-                                );
-                              }
-                            },
-                          ),
-                      color: Colors.orange,
-                    ),
-                  const SizedBox(width: 8),
-                  ElevatedButton(
-                    onPressed: () => _showEquipmentItems(category),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF2AA39F),
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text('View'),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                  child: const Text('View'),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
-    );
-  }
-
-  void _showDeleteCategoryConfirmation(EquipmentCategory category) {
-    showDialog(
-      context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Delete Category'),
-            content: Text(
-              'Are you sure you want to delete the "${category.title}" category? '
-              'This will also delete all items in this category. This action cannot be undone.',
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  Navigator.pop(context);
-                  try {
-                    // Delete the category and its items directly
-                    final itemsRef = FirebaseDatabase.instance.ref().child(
-                      'equipment_items',
-                    );
-                    final itemsQuery = itemsRef
-                        .orderByChild('categoryId')
-                        .equalTo(category.id);
-                    final snapshot = await itemsQuery.get();
-
-                    // Start a transaction to delete all items and the category
-                    final dbRef = FirebaseDatabase.instance.ref();
-                    final updates = <String, dynamic>{};
-
-                    // Mark all items for deletion
-                    if (snapshot.exists) {
-                      final items = snapshot.value as Map<dynamic, dynamic>;
-                      items.forEach((key, value) {
-                        updates['/equipment_items/$key'] = null;
-                      });
-                    }
-
-                    // Mark the category for deletion
-                    updates['/equipment_categories/${category.id}'] = null;
-
-                    // Execute all deletions in a single update
-                    await dbRef.update(updates);
-
-                    _loadEquipmentData();
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text('Deleted ${category.title} category'),
-                      ),
-                    );
-                  } catch (e) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to delete category: $e')),
-                    );
-                  }
-                },
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('Delete'),
-              ),
-            ],
-          ),
     );
   }
 
@@ -624,245 +470,85 @@ class _EquipmentPageState extends State<EquipmentPage> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
       ),
       builder: (context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return FutureBuilder<List<EquipmentItem>>(
-              future: EquipmentService.getCategoryItems(category.id),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+        return FutureBuilder<List<EquipmentItem>>(
+          future: EquipmentService.getCategoryItems(category.id),
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            }
 
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
+            if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            }
 
-                final items = snapshot.data ?? [];
+            final items = snapshot.data ?? [];
 
-                return Container(
-                  padding: const EdgeInsets.all(24),
-                  height: MediaQuery.of(context).size.height * 0.7,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            return Container(
+              padding: const EdgeInsets.all(24),
+              height: MediaQuery.of(context).size.height * 0.7,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            category.title,
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          IconButton(
-                            icon: const Icon(Icons.close),
-                            onPressed: () => Navigator.pop(context),
-                          ),
-                        ],
+                      Text(
+                        category.title,
+                        style: const TextStyle(
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
                       ),
-                      const SizedBox(height: 16),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          const Text(
-                            'Available Equipment',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          if (_userRole == 'teacher')
-                            ElevatedButton.icon(
-                              onPressed:
-                                  () => EquipmentDialogs.showAddItemDialog(
-                                    context,
-                                    categoryName: category.title,
-                                    categoryId: category.id,
-                                    onAdd: (item) async {
-                                      try {
-                                        await EquipmentService.addItem(item);
-                                        setState(() {}); // Refresh items
-                                        _loadEquipmentData(); // Refresh category counts
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text('Added ${item.name}'),
-                                          ),
-                                        );
-                                      } catch (e) {
-                                        ScaffoldMessenger.of(
-                                          context,
-                                        ).showSnackBar(
-                                          SnackBar(
-                                            content: Text(
-                                              'Failed to add item: $e',
-                                            ),
-                                          ),
-                                        );
-                                      }
-                                    },
-                                  ),
-                              icon: const Icon(Icons.add, size: 18),
-                              label: const Text('Add Item'),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF52B788),
-                                foregroundColor: Colors.white,
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 12,
-                                  vertical: 8,
-                                ),
-                                textStyle: const TextStyle(fontSize: 14),
-                              ),
-                            ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-                      Expanded(
-                        child:
-                            items.isEmpty
-                                ? const Center(
-                                  child: Text('No items available'),
-                                )
-                                : ListView.builder(
-                                  itemCount: items.length,
-                                  itemBuilder: (context, index) {
-                                    final item = items[index];
-                                    return Card(
-                                      margin: const EdgeInsets.only(bottom: 12),
-                                      child: ListTile(
-                                        title: Text(item.name),
-                                        subtitle: Text(
-                                          'Status: ${item.status}',
-                                        ),
-                                        trailing:
-                                            _userRole == 'teacher'
-                                                ? Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    IconButton(
-                                                      icon: const Icon(
-                                                        Icons.edit,
-                                                        size: 20,
-                                                      ),
-                                                      onPressed:
-                                                          () => EquipmentDialogs.showEditItemDialog(
-                                                            context,
-                                                            item: item,
-                                                            onEdit: (
-                                                              name,
-                                                              status,
-                                                            ) async {
-                                                              try {
-                                                                await EquipmentService.updateItem(
-                                                                  item.id,
-                                                                  {
-                                                                    'name':
-                                                                        name,
-                                                                    'status':
-                                                                        status,
-                                                                  },
-                                                                );
-                                                                setState(
-                                                                  () {},
-                                                                ); // Refresh items
-                                                                ScaffoldMessenger.of(
-                                                                  context,
-                                                                ).showSnackBar(
-                                                                  SnackBar(
-                                                                    content: Text(
-                                                                      'Updated to $name',
-                                                                    ),
-                                                                  ),
-                                                                );
-                                                              } catch (e) {
-                                                                ScaffoldMessenger.of(
-                                                                  context,
-                                                                ).showSnackBar(
-                                                                  SnackBar(
-                                                                    content: Text(
-                                                                      'Failed to update item: $e',
-                                                                    ),
-                                                                  ),
-                                                                );
-                                                              }
-                                                            },
-                                                          ),
-                                                      color: Colors.orange,
-                                                    ),
-                                                    IconButton(
-                                                      icon: const Icon(
-                                                        Icons.delete,
-                                                        size: 20,
-                                                      ),
-                                                      onPressed:
-                                                          () => EquipmentDialogs.showDeleteItemConfirmation(
-                                                            context,
-                                                            itemName: item.name,
-                                                            onDelete: () async {
-                                                              try {
-                                                                await EquipmentService.deleteItem(
-                                                                  item.id,
-                                                                  item.categoryId,
-                                                                );
-                                                                setState(
-                                                                  () {},
-                                                                ); // Refresh items
-                                                                _loadEquipmentData(); // Refresh category counts
-                                                                ScaffoldMessenger.of(
-                                                                  context,
-                                                                ).showSnackBar(
-                                                                  SnackBar(
-                                                                    content: Text(
-                                                                      'Deleted ${item.name}',
-                                                                    ),
-                                                                  ),
-                                                                );
-                                                              } catch (e) {
-                                                                ScaffoldMessenger.of(
-                                                                  context,
-                                                                ).showSnackBar(
-                                                                  SnackBar(
-                                                                    content: Text(
-                                                                      'Failed to delete item: $e',
-                                                                    ),
-                                                                  ),
-                                                                );
-                                                              }
-                                                            },
-                                                          ),
-                                                      color: Colors.red,
-                                                    ),
-                                                  ],
-                                                )
-                                                : ElevatedButton(
-                                                  onPressed:
-                                                      () => _reserveItem(
-                                                        category.title,
-                                                        item,
-                                                      ),
-                                                  style:
-                                                      ElevatedButton.styleFrom(
-                                                        backgroundColor:
-                                                            const Color(
-                                                              0xFF52B788,
-                                                            ),
-                                                        foregroundColor:
-                                                            Colors.white,
-                                                      ),
-                                                  child: const Text('Reserve'),
-                                                ),
-                                      ),
-                                    );
-                                  },
-                                ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
                       ),
                     ],
                   ),
-                );
-              },
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Available Equipment',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 16),
+                  Expanded(
+                    child:
+                        items.isEmpty
+                            ? const Center(child: Text('No items available'))
+                            : ListView.builder(
+                              itemCount: items.length,
+                              itemBuilder: (context, index) {
+                                final item = items[index];
+                                return Card(
+                                  margin: const EdgeInsets.only(bottom: 12),
+                                  child: ListTile(
+                                    title: Text(item.name),
+                                    subtitle: Text('Status: ${item.status}'),
+                                    trailing: ElevatedButton(
+                                      onPressed:
+                                          item.status == 'Available'
+                                              ? () => _reserveItem(
+                                                category.title,
+                                                item,
+                                              )
+                                              : null,
+                                      style: ElevatedButton.styleFrom(
+                                        backgroundColor: const Color(
+                                          0xFF52B788,
+                                        ),
+                                        foregroundColor: Colors.white,
+                                        disabledBackgroundColor:
+                                            Colors.grey.shade300,
+                                      ),
+                                      child: const Text('Reserve'),
+                                    ),
+                                  ),
+                                );
+                              },
+                            ),
+                  ),
+                ],
+              ),
             );
           },
         );
