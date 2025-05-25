@@ -1,4 +1,4 @@
-// lib/home/equipment_dialogs.dart
+// lib/home/equipment_dialogs_updated.dart
 import 'package:app/home/models/equipment_models.dart';
 import 'package:flutter/material.dart';
 
@@ -121,7 +121,6 @@ class EquipmentDialogs {
                     return;
                   }
 
-                  // Create category object
                   final category = EquipmentCategory(
                     id: '', // This will be set by the database
                     title: nameController.text,
@@ -189,7 +188,7 @@ class EquipmentDialogs {
     );
   }
 
-  // Add Item Dialog
+  // Add Item Dialog with Description and Quantity
   static void showAddItemDialog(
     BuildContext context, {
     required String categoryName,
@@ -197,6 +196,8 @@ class EquipmentDialogs {
     required Function(EquipmentItem) onAdd,
   }) {
     final nameController = TextEditingController();
+    final descriptionController = TextEditingController();
+    final quantityController = TextEditingController(text: '1');
     final statusController = TextEditingController(text: 'Available');
 
     showDialog(
@@ -204,25 +205,75 @@ class EquipmentDialogs {
       builder:
           (context) => AlertDialog(
             title: Text('Add Item to $categoryName'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Item Name',
-                    border: OutlineInputBorder(),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: nameController,
+                    decoration: const InputDecoration(
+                      labelText: 'Item Name *',
+                      border: OutlineInputBorder(),
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: statusController,
-                  decoration: const InputDecoration(
-                    labelText: 'Status',
-                    border: OutlineInputBorder(),
+                  const SizedBox(height: 16),
+                  TextField(
+                    controller: descriptionController,
+                    decoration: const InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder(),
+                      hintText: 'Enter item description (optional)',
+                    ),
+                    maxLines: 3,
                   ),
-                ),
-              ],
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: quantityController,
+                          decoration: const InputDecoration(
+                            labelText: 'Quantity *',
+                            border: OutlineInputBorder(),
+                          ),
+                          keyboardType: TextInputType.number,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: DropdownButtonFormField<String>(
+                          decoration: const InputDecoration(
+                            labelText: 'Status',
+                            border: OutlineInputBorder(),
+                          ),
+                          value: statusController.text,
+                          items: const [
+                            DropdownMenuItem(
+                              value: 'Available',
+                              child: Text('Available'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'In Use',
+                              child: Text('In Use'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Maintenance',
+                              child: Text('Maintenance'),
+                            ),
+                            DropdownMenuItem(
+                              value: 'Reserved',
+                              child: Text('Reserved'),
+                            ),
+                          ],
+                          onChanged: (value) {
+                            statusController.text = value ?? 'Available';
+                          },
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
             ),
             actions: [
               TextButton(
@@ -231,21 +282,26 @@ class EquipmentDialogs {
               ),
               ElevatedButton(
                 onPressed: () {
-                  if (nameController.text.isEmpty) {
+                  if (nameController.text.isEmpty ||
+                      quantityController.text.isEmpty) {
                     ScaffoldMessenger.of(context).showSnackBar(
                       const SnackBar(
-                        content: Text('Please enter an item name'),
+                        content: Text('Please fill in required fields'),
                       ),
                     );
                     return;
                   }
 
-                  // Create item object
                   final item = EquipmentItem(
                     id: '', // This will be set by the database
                     name: nameController.text,
                     status: statusController.text,
                     categoryId: categoryId,
+                    description:
+                        descriptionController.text.isEmpty
+                            ? null
+                            : descriptionController.text,
+                    quantity: quantityController.text,
                   );
 
                   onAdd(item);
@@ -261,65 +317,130 @@ class EquipmentDialogs {
     );
   }
 
-  // Edit Item Dialog
+  // Edit Item Dialog with Description and Quantity
   static void showEditItemDialog(
     BuildContext context, {
     required EquipmentItem item,
-    required Function(String, String) onEdit,
+    required Function(String, String, String, String)
+    onEdit, // name, status, description, quantity
   }) {
     final nameController = TextEditingController(text: item.name);
-    final statusController = TextEditingController(text: item.status);
+    final descriptionController = TextEditingController(
+      text: item.description ?? '',
+    );
+    final quantityController = TextEditingController(text: item.quantity);
+    String selectedStatus = item.status;
 
     showDialog(
       context: context,
       builder:
-          (context) => AlertDialog(
-            title: const Text('Edit Equipment Item'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Item Name',
-                    border: OutlineInputBorder(),
+          (context) => StatefulBuilder(
+            builder:
+                (context, setState) => AlertDialog(
+                  title: const Text('Edit Equipment Item'),
+                  content: SingleChildScrollView(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        TextField(
+                          controller: nameController,
+                          decoration: const InputDecoration(
+                            labelText: 'Item Name *',
+                            border: OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: descriptionController,
+                          decoration: const InputDecoration(
+                            labelText: 'Description',
+                            border: OutlineInputBorder(),
+                            hintText: 'Enter item description (optional)',
+                          ),
+                          maxLines: 3,
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: TextField(
+                                controller: quantityController,
+                                decoration: const InputDecoration(
+                                  labelText: 'Quantity *',
+                                  border: OutlineInputBorder(),
+                                ),
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              child: DropdownButtonFormField<String>(
+                                decoration: const InputDecoration(
+                                  labelText: 'Status',
+                                  border: OutlineInputBorder(),
+                                ),
+                                value: selectedStatus,
+                                items: const [
+                                  DropdownMenuItem(
+                                    value: 'Available',
+                                    child: Text('Available'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'In Use',
+                                    child: Text('In Use'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Maintenance',
+                                    child: Text('Maintenance'),
+                                  ),
+                                  DropdownMenuItem(
+                                    value: 'Reserved',
+                                    child: Text('Reserved'),
+                                  ),
+                                ],
+                                onChanged: (value) {
+                                  setState(() {
+                                    selectedStatus = value ?? 'Available';
+                                  });
+                                },
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
                   ),
-                ),
-                const SizedBox(height: 16),
-                TextField(
-                  controller: statusController,
-                  decoration: const InputDecoration(
-                    labelText: 'Status',
-                    border: OutlineInputBorder(),
-                  ),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  if (nameController.text.isEmpty) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Please enter an item name'),
+                  actions: [
+                    TextButton(
+                      onPressed: () => Navigator.pop(context),
+                      child: const Text('Cancel'),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        if (nameController.text.isEmpty ||
+                            quantityController.text.isEmpty) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Please fill in required fields'),
+                            ),
+                          );
+                          return;
+                        }
+                        onEdit(
+                          nameController.text,
+                          selectedStatus,
+                          descriptionController.text,
+                          quantityController.text,
+                        );
+                        Navigator.pop(context);
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF2AA39F),
                       ),
-                    );
-                    return;
-                  }
-
-                  onEdit(nameController.text, statusController.text);
-                  Navigator.pop(context);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2AA39F),
+                      child: const Text('Save'),
+                    ),
+                  ],
                 ),
-                child: const Text('Save'),
-              ),
-            ],
           ),
     );
   }

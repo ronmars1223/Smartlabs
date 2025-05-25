@@ -1,10 +1,12 @@
 import 'package:app/home/bottomnavbar.dart';
+import 'package:app/home/notification_modal.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'equipment_page.dart';
 import 'profile_page.dart';
-import 'request_page.dart'; // Import the request page
+import 'request_page.dart';
+import 'announcement_card.dart'; // Import the redesigned announcement card
 
 class HomePage extends StatefulWidget {
   final bool forceReload;
@@ -53,7 +55,7 @@ class _HomePageState extends State<HomePage> {
       // Teacher pages: Home, Equipment, Requests, Profile
       _pages = [
         _buildHomeContent(),
-        const EquipmentPage(), // Changed from ClassesPage to EquipmentPage
+        const EquipmentPage(),
         const RequestPage(),
         const ProfilePage(),
       ];
@@ -112,12 +114,11 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: Colors.grey.shade50, // Subtle background color
       appBar: AppBar(
         title: Row(
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('img/logo.png', width: 32, height: 32),
+            Image.asset('img/logo.png', width: 28, height: 28),
             const SizedBox(width: 8),
             const Text(
               "SMARTLAB",
@@ -125,10 +126,44 @@ class _HomePageState extends State<HomePage> {
             ),
           ],
         ),
-        centerTitle: true,
+        centerTitle: false,
         backgroundColor: const Color(0xFF2AA39F),
         foregroundColor: Colors.white,
         elevation: 0,
+        actions: [
+          IconButton(
+            icon: Stack(
+              children: [
+                const Icon(Icons.notifications_outlined, size: 26),
+                // Optional: Add a notification badge
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    padding: const EdgeInsets.all(2),
+                    decoration: BoxDecoration(
+                      color: Colors.red,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    constraints: const BoxConstraints(
+                      minWidth: 12,
+                      minHeight: 12,
+                    ),
+                    child: const Text(
+                      '3',
+                      style: TextStyle(color: Colors.white, fontSize: 8),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            onPressed: () {
+              showNotificationModal(context);
+            },
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body:
           _isLoading
@@ -166,119 +201,109 @@ class _HomePageState extends State<HomePage> {
 
   // Home tab content
   Widget _buildHomeContent() {
-    return Padding(
-      padding: const EdgeInsets.all(24.0),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+    return SafeArea(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Welcome card with modern design
+              _buildWelcomeCard(),
+
+              const SizedBox(height: 16),
+
+              // Announcements section - redesigned to be more compact
+              const AnnouncementCard(),
+
+              const SizedBox(height: 20),
+
+              // Quick Actions section - now with more space
+              _buildQuickActionsSection(),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // Welcome card widget
+  Widget _buildWelcomeCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF2AA39F), Color(0xFF52B788)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade300,
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Row(
         children: [
-          // Welcome card
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF2AA39F), Color(0xFF52B788)],
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              ),
-              borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.shade300,
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                ),
-              ],
-            ),
+          // Avatar section
+          CircleAvatar(
+            backgroundColor: Colors.white.withOpacity(0.3),
+            radius: 24,
+            child: const Icon(Icons.person, color: Colors.white, size: 28),
+          ),
+          const SizedBox(width: 12),
+
+          // User info section
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Text(
+                  'Welcome, $_userName',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 4),
                 Row(
                   children: [
-                    CircleAvatar(
-                      backgroundColor: Colors.white.withOpacity(0.3),
-                      radius: 24,
-                      child: const Icon(
-                        Icons.person,
-                        color: Colors.white,
-                        size: 32,
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        _userRole.isNotEmpty
+                            ? _userRole.substring(0, 1).toUpperCase() +
+                                _userRole.substring(1)
+                            : "Not set",
+                        style: TextStyle(
+                          color: Colors.white.withOpacity(0.9),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Welcome, $_userName',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Role: ${_userRole.isNotEmpty ? _userRole.substring(0, 1).toUpperCase() + _userRole.substring(1) : "Not set"}',
-                            style: TextStyle(
-                              color: Colors.white.withOpacity(0.9),
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
+                    const SizedBox(width: 8),
+                    Text(
+                      '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.9),
+                        fontSize: 12,
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 20),
-                Text(
-                  'Today is ${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-          const Text(
-            'Quick Actions',
-            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 16),
-
-          // Quick action buttons grid
-          Expanded(
-            child: GridView.count(
-              crossAxisCount: 2,
-              shrinkWrap: true,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              children: [
-                _buildActionCard('Profile', Icons.person, Colors.blue, () {
-                  setState(
-                    () => _currentIndex = _userRole == 'student' ? 2 : 3,
-                  ); // Updated index for teacher profile (now 3)
-                }),
-                _buildActionCard('Equipment', Icons.science, Colors.orange, () {
-                  setState(
-                    () => _currentIndex = 1,
-                  ); // Switch to equipment tab for both roles
-                }),
-                // Only show request quick action for teacher
-                if (_userRole == 'teacher')
-                  _buildActionCard(
-                    'Requests',
-                    Icons.assignment,
-                    Colors.green,
-                    () {
-                      setState(
-                        () => _currentIndex = 2,
-                      ); // Switch to requests tab
-                    },
-                  ),
               ],
             ),
           ),
@@ -287,25 +312,114 @@ class _HomePageState extends State<HomePage> {
     );
   }
 
-  Widget _buildActionCard(
-    String title,
-    IconData icon,
-    Color color,
-    VoidCallback onTap,
-  ) {
+  // Quick Actions section
+  Widget _buildQuickActionsSection() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section header with divider
+        Row(
+          children: [
+            const Icon(Icons.flash_on, size: 20, color: Color(0xFF2AA39F)),
+            const SizedBox(width: 6),
+            const Text(
+              'Quick Actions',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Container(height: 1, color: Colors.grey.shade200)),
+          ],
+        ),
+
+        const SizedBox(height: 16),
+
+        // Quick action grid - now with only the essential actions
+        _userRole == 'teacher'
+            ? Row(
+              children: [
+                Expanded(
+                  child: _buildActionCard(
+                    title: 'Profile',
+                    icon: Icons.person,
+                    color: Colors.blue,
+                    onTap: () {
+                      setState(() => _currentIndex = 3);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildActionCard(
+                    title: 'Equipment',
+                    icon: Icons.science,
+                    color: Colors.orange,
+                    onTap: () {
+                      setState(() => _currentIndex = 1);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildActionCard(
+                    title: 'Requests',
+                    icon: Icons.assignment,
+                    color: Colors.green,
+                    onTap: () {
+                      setState(() => _currentIndex = 2);
+                    },
+                  ),
+                ),
+              ],
+            )
+            : Row(
+              children: [
+                Expanded(
+                  child: _buildActionCard(
+                    title: 'Profile',
+                    icon: Icons.person,
+                    color: Colors.blue,
+                    onTap: () {
+                      setState(() => _currentIndex = 2);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _buildActionCard(
+                    title: 'Equipment',
+                    icon: Icons.science,
+                    color: Colors.orange,
+                    onTap: () {
+                      setState(() => _currentIndex = 1);
+                    },
+                  ),
+                ),
+              ],
+            ),
+      ],
+    );
+  }
+
+  Widget _buildActionCard({
+    required String title,
+    required IconData icon,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
-              color: Colors.grey.shade200,
-              blurRadius: 8,
+              color: Colors.grey.shade100,
+              blurRadius: 6,
               offset: const Offset(0, 2),
             ),
           ],
+          border: Border.all(color: Colors.grey.shade100),
         ),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -316,12 +430,12 @@ class _HomePageState extends State<HomePage> {
                 color: color.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(icon, color: color, size: 32),
+              child: Icon(icon, color: color, size: 28),
             ),
             const SizedBox(height: 12),
             Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 15),
             ),
           ],
         ),

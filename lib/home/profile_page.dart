@@ -56,8 +56,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _signOut() async {
     try {
       await FirebaseAuth.instance.signOut();
-      // Navigate to login page
-      // This navigation should be handled by your app's routing system
+      // Navigation should be handled by your routing system
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -78,7 +77,6 @@ class _ProfilePageState extends State<ProfilePage> {
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
             const SizedBox(height: 20),
-            // Profile picture
             CircleAvatar(
               radius: 60,
               backgroundColor: const Color(0xFF2AA39F).withOpacity(0.1),
@@ -89,19 +87,16 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
             ),
             const SizedBox(height: 20),
-            // User name
             Text(
               _userName,
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 4),
-            // User email
             Text(
               _userEmail,
               style: TextStyle(fontSize: 16, color: Colors.grey.shade600),
             ),
             const SizedBox(height: 12),
-            // User role
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
@@ -110,8 +105,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               child: Text(
                 _userRole.isNotEmpty
-                    ? _userRole.substring(0, 1).toUpperCase() +
-                        _userRole.substring(1)
+                    ? _userRole[0].toUpperCase() + _userRole.substring(1)
                     : "Role not set",
                 style: const TextStyle(
                   fontSize: 14,
@@ -122,46 +116,20 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
             const SizedBox(height: 40),
 
-            // Account section
             _buildSectionHeader('Account'),
-            _buildProfileOption('Edit Profile', Icons.edit, () {
-              // Navigate to edit profile
-              _showEditProfileDialog();
-            }),
-            _buildProfileOption('Change Password', Icons.lock, () {
-              // Show change password dialog
-              _showChangePasswordDialog();
-            }),
-
-            const SizedBox(height: 20),
-
-            // Preferences section
-            _buildSectionHeader('Preferences'),
             _buildProfileOption(
-              'Notification Settings',
-              Icons.notifications,
-              () {
-                // Navigate to notification settings
-              },
+              'Edit Profile',
+              Icons.edit,
+              _showEditProfileDialog,
             ),
-            _buildProfileOption('Appearance', Icons.palette, () {
-              // Navigate to appearance settings
-            }),
-
-            const SizedBox(height: 20),
-
-            // Support section
-            _buildSectionHeader('Support'),
-            _buildProfileOption('Help & Support', Icons.help, () {
-              // Navigate to help
-            }),
-            _buildProfileOption('About SmartLab', Icons.info, () {
-              // Navigate to about
-            }),
+            _buildProfileOption(
+              'Change Password',
+              Icons.lock,
+              _showChangePasswordDialog,
+            ),
 
             const SizedBox(height: 30),
 
-            // Sign out button
             ElevatedButton.icon(
               onPressed: _signOut,
               icon: const Icon(Icons.logout),
@@ -253,7 +221,6 @@ class _ProfilePageState extends State<ProfilePage> {
               ElevatedButton(
                 onPressed: () async {
                   Navigator.pop(context);
-                  // Update the name in Firebase
                   final user = FirebaseAuth.instance.currentUser;
                   if (user != null && nameController.text.trim().isNotEmpty) {
                     try {
@@ -262,11 +229,9 @@ class _ProfilePageState extends State<ProfilePage> {
                           .child('users')
                           .child(user.uid)
                           .update({'name': nameController.text.trim()});
-
                       setState(() {
                         _userName = nameController.text.trim();
                       });
-
                       ScaffoldMessenger.of(context).showSnackBar(
                         const SnackBar(content: Text('Profile updated')),
                       );
@@ -376,7 +341,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
                 ElevatedButton(
                   onPressed: () async {
-                    // Validate passwords
                     if (newPasswordController.text !=
                         confirmPasswordController.text) {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -396,7 +360,6 @@ class _ProfilePageState extends State<ProfilePage> {
                       return;
                     }
 
-                    // Change password
                     Navigator.pop(context);
 
                     try {
@@ -406,10 +369,7 @@ class _ProfilePageState extends State<ProfilePage> {
                         password: currentPasswordController.text,
                       );
 
-                      // Reauthenticate
                       await user?.reauthenticateWithCredential(credential);
-
-                      // Change password
                       await user?.updatePassword(newPasswordController.text);
 
                       ScaffoldMessenger.of(context).showSnackBar(

@@ -7,6 +7,9 @@ class EquipmentCategory {
   final int availableCount;
   final IconData icon;
   final Color color;
+  final String? createdAt;
+  final int totalCount; // Total number of equipment items
+  final String? updatedAt;
 
   EquipmentCategory({
     required this.id,
@@ -14,6 +17,9 @@ class EquipmentCategory {
     required this.availableCount,
     required this.icon,
     required this.color,
+    this.createdAt,
+    this.totalCount = 0,
+    this.updatedAt,
   });
 
   static IconData getIconFromString(String iconName) {
@@ -48,7 +54,34 @@ class EquipmentCategory {
       'availableCount': availableCount,
       'icon': getIconString(icon),
       'colorHex': color.value.toRadixString(16).substring(2),
+      'totalCount': totalCount,
+      'createdAt': createdAt ?? DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
     };
+  }
+
+  factory EquipmentCategory.fromMap(String id, Map<dynamic, dynamic> data) {
+    Color categoryColor = const Color(0xFF2AA39F);
+    if (data['colorHex'] != null) {
+      try {
+        categoryColor = Color(
+          int.parse(data['colorHex'], radix: 16) + 0xFF000000,
+        );
+      } catch (e) {
+        print('Error parsing color: $e');
+      }
+    }
+
+    return EquipmentCategory(
+      id: id,
+      title: data['title'] ?? 'Unknown',
+      availableCount: data['availableCount'] ?? 0,
+      totalCount: data['totalCount'] ?? 0,
+      icon: getIconFromString(data['icon'] ?? 'science'),
+      color: categoryColor,
+      createdAt: data['createdAt'],
+      updatedAt: data['updatedAt'],
+    );
   }
 }
 
@@ -57,15 +90,61 @@ class EquipmentItem {
   final String name;
   final String status;
   final String categoryId;
+  final String? description;
+  final String quantity;
+  final String? createdAt;
+  final String? updatedAt;
 
   EquipmentItem({
     required this.id,
     required this.name,
     required this.status,
     required this.categoryId,
+    this.description,
+    this.quantity = '1',
+    this.createdAt,
+    this.updatedAt,
   });
 
   Map<String, dynamic> toMap() {
-    return {'name': name, 'status': status, 'categoryId': categoryId};
+    return {
+      'name': name,
+      'status': status,
+      'categoryId': categoryId,
+      'description': description ?? '',
+      'quantity': quantity,
+      'createdAt': createdAt ?? DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
+  }
+
+  factory EquipmentItem.fromMap(String id, Map<dynamic, dynamic> data) {
+    return EquipmentItem(
+      id: id,
+      name: data['name'] ?? 'Unknown Item',
+      status: data['status'] ?? 'Available',
+      categoryId: data['categoryId'] ?? '',
+      description: data['description'],
+      quantity: data['quantity']?.toString() ?? '1',
+      createdAt: data['createdAt'],
+      updatedAt: data['updatedAt'],
+    );
+  }
+
+  bool get isAvailable => status.toLowerCase() == 'available';
+
+  Color get statusColor {
+    switch (status.toLowerCase()) {
+      case 'available':
+        return Colors.green;
+      case 'reserved':
+        return Colors.orange;
+      case 'in use':
+        return Colors.blue;
+      case 'maintenance':
+        return Colors.red;
+      default:
+        return Colors.grey;
+    }
   }
 }

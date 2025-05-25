@@ -22,7 +22,7 @@ class _RequestPageState extends State<RequestPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    _loadRequests();
+    _loadAdviserRequestsOnly();
   }
 
   @override
@@ -31,136 +31,247 @@ class _RequestPageState extends State<RequestPage>
     super.dispose();
   }
 
-  Future<void> _loadRequests() async {
+  Future<void> _loadAdviserRequestsOnly() async {
     setState(() => _isLoading = true);
 
     try {
-      // Get current user for teacher ID
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) {
         setState(() => _isLoading = false);
         return;
       }
 
-      // Get equipment requests from Firebase
       final snapshot =
           await FirebaseDatabase.instance
               .ref()
-              .child('equipment_requests')
-              .orderByChild('timestamp')
+              .child('borrow_requests')
+              .orderByChild('adviserId')
+              .equalTo(user.uid)
               .get();
 
+      List<Map<String, dynamic>> adviserRequests = [];
+
       if (snapshot.exists) {
-        final allRequests = <Map<String, dynamic>>[];
         final data = snapshot.value as Map<dynamic, dynamic>;
-
         data.forEach((key, value) {
-          final request = Map<String, dynamic>.from(value as Map);
+          final request = Map<String, dynamic>.from(value);
           request['id'] = key;
-          allRequests.add(request);
+          adviserRequests.add(request);
         });
 
-        // Sort requests by timestamp in descending order (newest first)
-        allRequests.sort(
-          (a, b) => (b['timestamp'] ?? 0).compareTo(a['timestamp'] ?? 0),
+        adviserRequests.sort(
+          (a, b) => b['requestedAt'].toString().compareTo(
+            a['requestedAt'].toString(),
+          ),
         );
-
-        // Filter requests into categories
-        setState(() {
-          _pendingRequests =
-              allRequests.where((req) => req['status'] == 'pending').toList();
-          _approvedRequests =
-              allRequests.where((req) => req['status'] == 'approved').toList();
-          _rejectedRequests =
-              allRequests.where((req) => req['status'] == 'rejected').toList();
-          _isLoading = false;
-        });
-      } else {
-        setState(() => _isLoading = false);
       }
+
+      setState(() {
+        _pendingRequests =
+            adviserRequests.where((r) => r['status'] == 'pending').toList();
+        _approvedRequests =
+            adviserRequests.where((r) => r['status'] == 'approved').toList();
+        _rejectedRequests =
+            adviserRequests.where((r) => r['status'] == 'rejected').toList();
+        _isLoading = false;
+      });
     } catch (e) {
-      print('Error loading requests: $e');
+      _showSnackBar('Error loading requests: $e', isError: true);
       setState(() => _isLoading = false);
     }
   }
 
   Future<void> _updateRequestStatus(String requestId, String status) async {
     try {
-      await FirebaseDatabase.instance
-          .ref()
-          .child('equipment_requests')
-          .child(requestId)
-          .update({
-            'status': status,
-            'processed_timestamp': DateTime.now().millisecondsSinceEpoch,
-            'processed_by': FirebaseAuth.instance.currentUser?.uid,
-          });
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) return;
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Request ${status.toUpperCase()}')),
+      final updateData = {
+        'status': status,
+        'processedAt': DateTime.now().toIso8601String(),
+        'processedBy': user.uid,
+      };
+
+      await Future.wait([
+        FirebaseDatabase.instance
+            .ref()
+            .child('borrow_requests')
+            .child(requestId)
+            .update(updateData),
+        _updateStudentRequest(requestId, updateData),
+      ]);
+
+      _showSnackBar(
+        'Request ${status.toUpperCase()} successfully!',
+        isError: false,
       );
-
-      _loadRequests(); // Reload requests to update UI
+      _loadAdviserRequestsOnly();
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      _showSnackBar('Error updating request: $e', isError: true);
     }
+  }
+
+  Future<void> _updateStudentRequest(
+    String requestId,
+    Map<String, dynamic> updateData,
+  ) async {
+    try {
+      final requestSnapshot =
+          await FirebaseDatabase.instance
+              .ref()
+              .child('borrow_requests')
+              .child(requestId)
+              .get();
+
+      if (requestSnapshot.exists) {
+        final requestData = requestSnapshot.value as Map<dynamic, dynamic>;
+        final studentId = requestData['userId'];
+
+        if (studentId != null) {
+          await FirebaseDatabase.instance
+              .ref()
+              .child('users')
+              .child(studentId)
+              .child('borrow_requests')
+              .child(requestId)
+              .update(updateData);
+        }
+      }
+    } catch (e) {
+      print('Error updating student request: $e');
+    }
+  }
+
+  void _showSnackBar(String message, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Icon(
+              isError ? Icons.error_outline : Icons.check_circle_outline,
+              color: Colors.white,
+              size: 20,
+            ),
+            const SizedBox(width: 8),
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor:
+            isError ? const Color(0xFFE74C3C) : const Color(0xFF27AE60),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        // Tab bar for navigation between request types
         Container(
           color: Colors.white,
           child: TabBar(
             controller: _tabController,
-            labelColor: const Color(0xFF2AA39F),
+            labelColor: const Color(0xFF6C63FF),
             unselectedLabelColor: Colors.grey,
-            indicatorColor: const Color(0xFF2AA39F),
-            tabs: const [
-              Tab(text: 'Pending'),
-              Tab(text: 'Approved'),
-              Tab(text: 'Rejected'),
+            indicatorColor: const Color(0xFF6C63FF),
+            tabs: [
+              Tab(
+                child: Text(
+                  'Pending (${_pendingRequests.length})',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Tab(
+                child: Text(
+                  'Approved (${_approvedRequests.length})',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+              Tab(
+                child: Text(
+                  'Rejected (${_rejectedRequests.length})',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ],
           ),
         ),
-
-        // Refresh button
-        Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.05),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
           child: Row(
             children: [
+              const Icon(
+                Icons.assignment_outlined,
+                color: Color(0xFF6C63FF),
+                size: 24,
+              ),
+              const SizedBox(width: 8),
               const Text(
-                'Equipment Requests',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                'Borrow Requests',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2C3E50),
+                ),
               ),
               const Spacer(),
-              IconButton(
-                icon: const Icon(Icons.refresh),
-                onPressed: _loadRequests,
-                tooltip: 'Refresh requests',
+              Container(
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF8F9FA),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: IconButton(
+                  icon: const Icon(Icons.refresh, color: Color(0xFF6C63FF)),
+                  onPressed: _loadAdviserRequestsOnly,
+                  tooltip: 'Refresh requests',
+                ),
               ),
             ],
           ),
         ),
-
-        // Loading indicator or tab content
         _isLoading
-            ? const Expanded(child: Center(child: CircularProgressIndicator()))
+            ? const Expanded(
+              child: Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    CircularProgressIndicator(color: Color(0xFF6C63FF)),
+                    SizedBox(height: 16),
+                    Text(
+                      'Loading requests...',
+                      style: TextStyle(color: Colors.grey, fontSize: 16),
+                    ),
+                  ],
+                ),
+              ),
+            )
             : Expanded(
               child: TabBarView(
                 controller: _tabController,
                 children: [
-                  // Pending requests tab
                   _buildRequestsList(_pendingRequests, showActions: true),
-
-                  // Approved requests tab
                   _buildRequestsList(_approvedRequests),
-
-                  // Rejected requests tab
                   _buildRequestsList(_rejectedRequests),
                 ],
               ),
@@ -178,19 +289,36 @@ class _RequestPageState extends State<RequestPage>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              Icons.assignment_outlined,
-              size: 64,
-              color: Colors.grey.shade400,
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8F9FA),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Icon(
+                showActions
+                    ? Icons.pending_actions
+                    : Icons.assignment_turned_in,
+                size: 64,
+                color: Colors.grey.shade400,
+              ),
             ),
             const SizedBox(height: 16),
             Text(
-              'No requests found',
+              showActions ? 'No pending requests' : 'No requests found',
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey.shade600,
               ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              showActions
+                  ? 'New borrow requests will appear here'
+                  : 'Processed requests will appear here',
+              style: TextStyle(fontSize: 14, color: Colors.grey.shade500),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -202,121 +330,207 @@ class _RequestPageState extends State<RequestPage>
       itemCount: requests.length,
       itemBuilder: (context, index) {
         final request = requests[index];
-        final studentName = request['student_name'] ?? 'Unknown Student';
-        final equipmentName = request['equipment_name'] ?? 'Unknown Equipment';
-        final requestDate =
-            request['timestamp'] != null
-                ? DateFormat('MMM dd, yyyy - hh:mm a').format(
-                  DateTime.fromMillisecondsSinceEpoch(request['timestamp']),
-                )
-                : 'Unknown Date';
-        final status = request['status'] ?? 'pending';
+        return _buildRequestCard(request, showActions: showActions);
+      },
+    );
+  }
 
-        // Determine status color
-        Color statusColor;
-        switch (status) {
-          case 'approved':
-            statusColor = Colors.green;
-            break;
-          case 'rejected':
-            statusColor = Colors.red;
-            break;
-          default:
-            statusColor = Colors.orange;
-        }
+  Widget _buildRequestCard(
+    Map<String, dynamic> request, {
+    bool showActions = false,
+  }) {
+    final requestDate =
+        request['requestedAt'] != null
+            ? DateFormat(
+              'MMM dd, yyyy - hh:mm a',
+            ).format(DateTime.parse(request['requestedAt']))
+            : 'Unknown Date';
 
-        return Card(
-          margin: const EdgeInsets.only(bottom: 16),
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+    final dateToBeUsed =
+        request['dateToBeUsed'] != null
+            ? DateFormat(
+              'MMM dd, yyyy',
+            ).format(DateTime.parse(request['dateToBeUsed']))
+            : 'Not specified';
+
+    final dateToReturn =
+        request['dateToReturn'] != null
+            ? DateFormat(
+              'MMM dd, yyyy',
+            ).format(DateTime.parse(request['dateToReturn']))
+            : 'Not specified';
+
+    final status = request['status'] ?? 'pending';
+    final studentEmail = request['userEmail'] ?? 'Unknown Student';
+    final itemName = request['itemName'] ?? 'Unknown Item';
+    final categoryName = request['categoryName'] ?? 'Unknown Category';
+    final laboratory = request['laboratory'] ?? 'Not specified';
+    final quantity = request['quantity']?.toString() ?? '1';
+    final itemNo = request['itemNo'] ?? 'Not specified';
+
+    Color statusColor;
+    IconData statusIcon;
+    switch (status) {
+      case 'approved':
+        statusColor = const Color(0xFF27AE60);
+        statusIcon = Icons.check_circle;
+        break;
+      case 'rejected':
+        statusColor = const Color(0xFFE74C3C);
+        statusIcon = Icons.cancel;
+        break;
+      default:
+        statusColor = const Color(0xFFF39C12);
+        statusIcon = Icons.pending;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.95),
+        borderRadius: BorderRadius.circular(16),
+        border: Border(left: BorderSide(color: statusColor, width: 4)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
           ),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+        ],
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header
+            Row(
               children: [
-                // Request header with status badge
-                Row(
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Request #${request['id'].toString().substring(0, 8)}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: statusColor.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(16),
-                      ),
-                      child: Text(
-                        status.toUpperCase(),
-                        style: TextStyle(
-                          color: statusColor,
-                          fontWeight: FontWeight.bold,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
-                // Request details
-                _buildInfoRow('Student', studentName),
-                _buildInfoRow('Equipment', equipmentName),
-                _buildInfoRow('Date', requestDate),
-                if (request['purpose'] != null)
-                  _buildInfoRow('Purpose', request['purpose']),
-
-                // Approval/Rejection buttons for pending requests
-                if (showActions)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 16),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        OutlinedButton(
-                          onPressed:
-                              () => _updateRequestStatus(
-                                request['id'],
-                                'rejected',
-                              ),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: Colors.red,
-                            side: const BorderSide(color: Colors.red),
-                          ),
-                          child: const Text('Reject'),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton(
-                          onPressed:
-                              () => _updateRequestStatus(
-                                request['id'],
-                                'approved',
-                              ),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF52B788),
-                            foregroundColor: Colors.white,
-                          ),
-                          child: const Text('Approve'),
-                        ),
-                      ],
+                Expanded(
+                  child: Text(
+                    'Request #${request['id'].toString().substring(0, 8).toUpperCase()}',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w700,
+                      fontSize: 16,
+                      color: Color(0xFF2C3E50),
                     ),
                   ),
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.12),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(statusIcon, size: 16, color: statusColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        status.toUpperCase(),
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                          color: statusColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ],
             ),
+            const SizedBox(height: 16),
+            const Divider(color: Color(0xFFEAEAEA)),
+            const SizedBox(height: 12),
+
+            // Info
+            _infoText('Student', studentEmail),
+            _infoText('Item', itemName),
+            _infoText('Item No.', itemNo),
+            _infoText('Category', categoryName),
+            _infoText('Laboratory', laboratory),
+            _infoText('Quantity', quantity),
+            _infoText('Usage Period', '$dateToBeUsed → $dateToReturn'),
+            _infoText('Requested At', requestDate),
+
+            if (showActions) ...[
+              const SizedBox(height: 20),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed:
+                          () => _updateRequestStatus(request['id'], 'rejected'),
+                      icon: const Icon(Icons.close, size: 18),
+                      label: const Text('Reject'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: const Color(0xFFE74C3C),
+                        side: const BorderSide(color: Color(0xFFE74C3C)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed:
+                          () => _updateRequestStatus(request['id'], 'approved'),
+                      icon: const Icon(Icons.check, size: 18),
+                      label: const Text('Approve'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF27AE60),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _infoText(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              '$label:',
+              style: TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+                color: Colors.grey.shade700,
+              ),
+            ),
           ),
-        );
-      },
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF2C3E50),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 
@@ -327,19 +541,24 @@ class _RequestPageState extends State<RequestPage>
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           SizedBox(
-            width: 80,
+            width: 100,
             child: Text(
               '$label:',
-              style: TextStyle(
-                fontWeight: FontWeight.w500,
-                color: Colors.grey.shade700,
+              style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                color: Color(0xFF34495E),
+                fontSize: 14,
               ),
             ),
           ),
           Expanded(
             child: Text(
               value,
-              style: const TextStyle(fontWeight: FontWeight.w400),
+              style: const TextStyle(
+                fontWeight: FontWeight.w400,
+                color: Color(0xFF2C3E50),
+                fontSize: 14,
+              ),
             ),
           ),
         ],
