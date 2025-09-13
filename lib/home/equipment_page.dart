@@ -4,7 +4,6 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:app/home/models/equipment_models.dart';
 import 'package:app/home/service/equipment_service.dart';
-import 'package:app/home/equipment_dialogs.dart';
 import 'package:app/home/form_page.dart'; // ADD THIS IMPORT
 
 class EquipmentPage extends StatefulWidget {
@@ -57,7 +56,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
         });
       }
     } catch (e) {
-      print('Error loading user role: $e');
+      debugPrint('Error loading user role: $e');
     }
   }
 
@@ -69,9 +68,11 @@ class _EquipmentPageState extends State<EquipmentPage> {
     try {
       _equipmentCategories = await EquipmentService.getCategories();
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to load equipment data: $e')),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to load equipment data: $e')),
+        );
+      }
     }
 
     setState(() {
@@ -218,7 +219,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
               selected: _selectedCategoryId == null,
               onSelected: (_) => setState(() => _selectedCategoryId = null),
               backgroundColor: Colors.grey.shade200,
-              selectedColor: const Color(0xFF52B788).withOpacity(0.2),
+              selectedColor: const Color(0xFF52B788).withValues(alpha: 0.2),
               checkmarkColor: const Color(0xFF52B788),
               labelStyle: TextStyle(
                 color:
@@ -251,7 +252,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
                   });
                 },
                 backgroundColor: Colors.grey.shade200,
-                selectedColor: const Color(0xFF52B788).withOpacity(0.2),
+                selectedColor: const Color(0xFF52B788).withValues(alpha: 0.2),
                 checkmarkColor: const Color(0xFF52B788),
                 labelStyle: TextStyle(
                   color: isSelected ? const Color(0xFF52B788) : Colors.black,
@@ -367,7 +368,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: category.color.withOpacity(0.1),
+                        color: category.color.withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Icon(
@@ -425,7 +426,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
                               vertical: 4,
                             ),
                             decoration: BoxDecoration(
-                              color: item.statusColor.withOpacity(0.1),
+                              color: item.statusColor.withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -491,7 +492,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
                 Container(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: category.color.withOpacity(0.1),
+                    color: category.color.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Icon(category.icon, color: category.color, size: 28),
@@ -662,7 +663,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
                                                     ),
                                                 decoration: BoxDecoration(
                                                   color: item.statusColor
-                                                      .withOpacity(0.1),
+                                                      .withValues(alpha: 0.1),
                                                   borderRadius:
                                                       BorderRadius.circular(8),
                                                 ),
