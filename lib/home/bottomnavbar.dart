@@ -17,7 +17,7 @@ class AppBottomNavBar extends StatelessWidget {
     // Define items based on user role
     List<BottomNavigationBarItem> items = [];
 
-    // For student role, only show Home, Equipment, and Profile
+    // For student role, show Home, Equipment, History, and Profile
     if (userRole == 'student') {
       items = [
         const BottomNavigationBarItem(
@@ -31,13 +31,18 @@ class AppBottomNavBar extends StatelessWidget {
           label: 'Equipment',
         ),
         const BottomNavigationBarItem(
+          icon: Icon(Icons.history_outlined),
+          activeIcon: Icon(Icons.history),
+          label: 'History',
+        ),
+        const BottomNavigationBarItem(
           icon: Icon(Icons.person_outline),
           activeIcon: Icon(Icons.person),
           label: 'Profile',
         ),
       ];
     } else if (userRole == 'teacher') {
-      // For teacher role, show Home, Equipment, Requests, and Profile
+      // For teacher role, show Home, Equipment, Management, Requests, Analytics, and Profile
       items = [
         const BottomNavigationBarItem(
           icon: Icon(Icons.home_outlined),
@@ -50,9 +55,19 @@ class AppBottomNavBar extends StatelessWidget {
           label: 'Equipment',
         ),
         const BottomNavigationBarItem(
+          icon: Icon(Icons.settings_outlined),
+          activeIcon: Icon(Icons.settings),
+          label: 'Manage',
+        ),
+        const BottomNavigationBarItem(
           icon: Icon(Icons.assignment_outlined),
           activeIcon: Icon(Icons.assignment),
           label: 'Requests',
+        ),
+        const BottomNavigationBarItem(
+          icon: Icon(Icons.analytics_outlined),
+          activeIcon: Icon(Icons.analytics),
+          label: 'Analytics',
         ),
         const BottomNavigationBarItem(
           icon: Icon(Icons.person_outline),
@@ -81,7 +96,7 @@ class AppBottomNavBar extends StatelessWidget {
         color: Colors.white,
         boxShadow: [
           BoxShadow(
-            color: Colors.grey.withOpacity(0.2),
+            color: Colors.grey.withValues(alpha: 0.2),
             spreadRadius: 0,
             blurRadius: 10,
             offset: const Offset(0, -2),

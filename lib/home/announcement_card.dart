@@ -67,7 +67,7 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
         }
       }
     } catch (e) {
-      print('Error loading announcements: $e');
+      debugPrint('Error loading announcements: $e');
       if (mounted) {
         setState(() {
           _isLoadingAnnouncements = false;
@@ -135,7 +135,7 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
                     decoration: BoxDecoration(
                       color: _getCategoryColor(
                         announcement['category'] as String,
-                      ).withOpacity(0.1),
+                      ).withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Text(
@@ -261,7 +261,7 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
                                     leading: CircleAvatar(
                                       backgroundColor: _getCategoryColor(
                                         category,
-                                      ).withOpacity(0.1),
+                                      ).withValues(alpha: 0.1),
                                       child: Icon(
                                         Icons.announcement,
                                         color: _getCategoryColor(category),
@@ -307,7 +307,7 @@ class _AnnouncementCardState extends State<AnnouncementCard> {
         );
       }
     } catch (e) {
-      print('Error loading all announcements: $e');
+      debugPrint('Error loading all announcements: $e');
     }
   }
 

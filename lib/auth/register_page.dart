@@ -92,12 +92,12 @@ class _RegisterPageState extends State<RegisterPage> {
       };
 
       _showSnackBar(errorMessages[e.code] ?? "Registration failed");
-      print("Firebase Auth Error: ${e.code} - ${e.message}");
+      debugPrint("Firebase Auth Error: ${e.code} - ${e.message}");
     } on TimeoutException {
       _showSnackBar("Connection timeout. Please try again.");
     } catch (e) {
       _showSnackBar("Registration Failed: $e");
-      print("General error during registration: $e");
+      debugPrint("General error during registration: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }

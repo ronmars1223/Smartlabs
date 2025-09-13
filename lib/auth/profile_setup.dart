@@ -54,7 +54,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       }
     } catch (e) {
       _showSnackBar("Failed to complete profile setup: $e");
-      print("Error in profile setup: $e");
+      debugPrint("Error in profile setup: $e");
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -205,7 +205,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
               decoration: BoxDecoration(
                 color:
                     isSelected
-                        ? const Color(0xFF2AA39F).withOpacity(0.2)
+                        ? const Color(0xFF2AA39F).withValues(alpha: 0.2)
                         : Colors.grey.shade100,
                 borderRadius: BorderRadius.circular(8),
               ),

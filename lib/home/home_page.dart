@@ -1,11 +1,15 @@
 import 'package:app/home/bottomnavbar.dart';
 import 'package:app/home/notification_modal.dart';
+import 'package:app/home/service/notification_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'equipment_page.dart';
 import 'profile_page.dart';
 import 'request_page.dart';
+import 'borrowing_history_page.dart';
+import 'analytics_page.dart';
+import 'equipment_management_page.dart';
 import 'announcement_card.dart'; // Import the redesigned announcement card
 
 class HomePage extends StatefulWidget {
@@ -22,6 +26,7 @@ class _HomePageState extends State<HomePage> {
   String _userName = 'User';
   String _userRole = '';
   int _currentIndex = 0; // Current tab index
+  int _notificationCount = 0;
 
   // List of page widgets
   late List<Widget> _pages;
@@ -40,23 +45,27 @@ class _HomePageState extends State<HomePage> {
     }
 
     _loadUserData();
+    _loadNotificationCount();
   }
 
   // Initialize pages after user role is loaded
   void _initPages() {
     if (_userRole == 'student') {
-      // Student pages: Home, Equipment, Profile
+      // Student pages: Home, Equipment, History, Profile
       _pages = [
         _buildHomeContent(),
         const EquipmentPage(),
+        const BorrowingHistoryPage(),
         const ProfilePage(),
       ];
     } else if (_userRole == 'teacher') {
-      // Teacher pages: Home, Equipment, Requests, Profile
+      // Teacher pages: Home, Equipment, Management, Requests, Analytics, Profile
       _pages = [
         _buildHomeContent(),
         const EquipmentPage(),
+        const EquipmentManagementPage(),
         const RequestPage(),
+        const AnalyticsPage(),
         const ProfilePage(),
       ];
     } else {
@@ -103,11 +112,24 @@ class _HomePageState extends State<HomePage> {
         _initPages();
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      debugPrint('Error loading user data: $e');
       if (mounted) {
         setState(() => _isLoading = false);
       }
       _initPages();
+    }
+  }
+
+  Future<void> _loadNotificationCount() async {
+    try {
+      final count = await NotificationService.getUnreadCount();
+      if (mounted) {
+        setState(() {
+          _notificationCount = count;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading notification count: $e');
     }
   }
 
@@ -135,31 +157,39 @@ class _HomePageState extends State<HomePage> {
             icon: Stack(
               children: [
                 const Icon(Icons.notifications_outlined, size: 26),
-                // Optional: Add a notification badge
-                Positioned(
-                  right: 0,
-                  top: 0,
-                  child: Container(
-                    padding: const EdgeInsets.all(2),
-                    decoration: BoxDecoration(
-                      color: Colors.red,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    constraints: const BoxConstraints(
-                      minWidth: 12,
-                      minHeight: 12,
-                    ),
-                    child: const Text(
-                      '3',
-                      style: TextStyle(color: Colors.white, fontSize: 8),
-                      textAlign: TextAlign.center,
+                // Show notification badge only if there are unread notifications
+                if (_notificationCount > 0)
+                  Positioned(
+                    right: 0,
+                    top: 0,
+                    child: Container(
+                      padding: const EdgeInsets.all(2),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      constraints: const BoxConstraints(
+                        minWidth: 12,
+                        minHeight: 12,
+                      ),
+                      child: Text(
+                        _notificationCount > 99
+                            ? '99+'
+                            : _notificationCount.toString(),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
                     ),
                   ),
-                ),
               ],
             ),
             onPressed: () {
               showNotificationModal(context);
+              // Refresh notification count after opening modal
+              _loadNotificationCount();
             },
           ),
           const SizedBox(width: 8),
@@ -251,7 +281,7 @@ class _HomePageState extends State<HomePage> {
         children: [
           // Avatar section
           CircleAvatar(
-            backgroundColor: Colors.white.withOpacity(0.3),
+            backgroundColor: Colors.white.withValues(alpha: 0.3),
             radius: 24,
             child: const Icon(Icons.person, color: Colors.white, size: 28),
           ),
@@ -279,7 +309,7 @@ class _HomePageState extends State<HomePage> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.2),
+                        color: Colors.white.withValues(alpha: 0.2),
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Text(
@@ -288,7 +318,7 @@ class _HomePageState extends State<HomePage> {
                                 _userRole.substring(1)
                             : "Not set",
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white.withValues(alpha: 0.9),
                           fontSize: 12,
                           fontWeight: FontWeight.w500,
                         ),
@@ -298,7 +328,7 @@ class _HomePageState extends State<HomePage> {
                     Text(
                       '${DateTime.now().day}/${DateTime.now().month}/${DateTime.now().year}',
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withValues(alpha: 0.9),
                         fontSize: 12,
                       ),
                     ),
@@ -427,7 +457,7 @@ class _HomePageState extends State<HomePage> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, color: color, size: 28),

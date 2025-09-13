@@ -97,7 +97,7 @@ class _LoginPageState extends State<LoginPage> {
             }
           }
         } catch (e) {
-          print('Database error: $e');
+          debugPrint('Database error: $e');
           await FirebaseAuth.instance.signOut();
           if (mounted) {
             ScaffoldMessenger.of(
@@ -423,22 +423,29 @@ class _LoginPageState extends State<LoginPage> {
                     return;
                   }
 
+                  final navigator = Navigator.of(context);
+                  final scaffoldMessenger = ScaffoldMessenger.of(context);
+
                   try {
                     await FirebaseAuth.instance.sendPasswordResetEmail(
                       email: resetEmailController.text.trim(),
                     );
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text(
-                          'Password reset email sent. Please check your inbox.',
+                    if (mounted) {
+                      navigator.pop();
+                      scaffoldMessenger.showSnackBar(
+                        const SnackBar(
+                          content: Text(
+                            'Password reset email sent. Please check your inbox.',
+                          ),
                         ),
-                      ),
-                    );
+                      );
+                    }
                   } catch (e) {
-                    ScaffoldMessenger.of(
-                      context,
-                    ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                    if (mounted) {
+                      scaffoldMessenger.showSnackBar(
+                        SnackBar(content: Text('Error: $e')),
+                      );
+                    }
                   }
                 },
                 style: ElevatedButton.styleFrom(

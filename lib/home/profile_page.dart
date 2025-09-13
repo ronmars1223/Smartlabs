@@ -48,7 +48,7 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() => _isLoading = false);
       }
     } catch (e) {
-      print('Error loading user data: $e');
+      debugPrint('Error loading user data: $e');
       setState(() => _isLoading = false);
     }
   }
@@ -58,9 +58,11 @@ class _ProfilePageState extends State<ProfilePage> {
       await FirebaseAuth.instance.signOut();
       // Navigation should be handled by your routing system
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error signing out: $e')));
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error signing out: $e')));
+      }
     }
   }
 
@@ -79,7 +81,7 @@ class _ProfilePageState extends State<ProfilePage> {
             const SizedBox(height: 20),
             CircleAvatar(
               radius: 60,
-              backgroundColor: const Color(0xFF2AA39F).withOpacity(0.1),
+              backgroundColor: const Color(0xFF2AA39F).withValues(alpha: 0.1),
               child: const Icon(
                 Icons.person,
                 size: 80,
@@ -100,7 +102,7 @@ class _ProfilePageState extends State<ProfilePage> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
               decoration: BoxDecoration(
-                color: const Color(0xFF2AA39F).withOpacity(0.1),
+                color: const Color(0xFF2AA39F).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(20),
               ),
               child: Text(
@@ -220,7 +222,9 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               ElevatedButton(
                 onPressed: () async {
-                  Navigator.pop(context);
+                  final navigator = Navigator.of(context);
+                  final scaffoldMessenger = ScaffoldMessenger.of(context);
+                  navigator.pop();
                   final user = FirebaseAuth.instance.currentUser;
                   if (user != null && nameController.text.trim().isNotEmpty) {
                     try {
@@ -229,16 +233,20 @@ class _ProfilePageState extends State<ProfilePage> {
                           .child('users')
                           .child(user.uid)
                           .update({'name': nameController.text.trim()});
-                      setState(() {
-                        _userName = nameController.text.trim();
-                      });
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Profile updated')),
-                      );
+                      if (mounted) {
+                        setState(() {
+                          _userName = nameController.text.trim();
+                        });
+                        scaffoldMessenger.showSnackBar(
+                          const SnackBar(content: Text('Profile updated')),
+                        );
+                      }
                     } catch (e) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Error updating profile: $e')),
-                      );
+                      if (mounted) {
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(content: Text('Error updating profile: $e')),
+                        );
+                      }
                     }
                   }
                 },
@@ -360,7 +368,9 @@ class _ProfilePageState extends State<ProfilePage> {
                       return;
                     }
 
-                    Navigator.pop(context);
+                    final navigator = Navigator.of(context);
+                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+                    navigator.pop();
 
                     try {
                       final user = FirebaseAuth.instance.currentUser;
@@ -372,15 +382,19 @@ class _ProfilePageState extends State<ProfilePage> {
                       await user?.reauthenticateWithCredential(credential);
                       await user?.updatePassword(newPasswordController.text);
 
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text('Password updated successfully'),
-                        ),
-                      );
+                      if (mounted) {
+                        scaffoldMessenger.showSnackBar(
+                          const SnackBar(
+                            content: Text('Password updated successfully'),
+                          ),
+                        );
+                      }
                     } catch (e) {
-                      ScaffoldMessenger.of(
-                        context,
-                      ).showSnackBar(SnackBar(content: Text('Error: $e')));
+                      if (mounted) {
+                        scaffoldMessenger.showSnackBar(
+                          SnackBar(content: Text('Error: $e')),
+                        );
+                      }
                     }
                   },
                   style: ElevatedButton.styleFrom(

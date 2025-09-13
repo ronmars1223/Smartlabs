@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../form_page.dart';
+import 'notification_service.dart';
 
 class FormService {
   Future<DateTime?> selectDate(
@@ -86,6 +87,34 @@ class FormService {
           .child('equipments')
           .child(widget.itemId)
           .update({'quantity_borrowed': quantity}),
+
+      // Send notification to adviser
+      NotificationService.sendNotificationToUser(
+        userId: adviserId,
+        title: 'New Borrow Request',
+        message: '${user.email} has requested to borrow ${widget.itemName}',
+        type: 'info',
+        additionalData: {
+          'requestId': requestId,
+          'itemName': widget.itemName,
+          'studentEmail': user.email,
+          'requestedAt': borrowRequestData['requestedAt'],
+        },
+      ),
+
+      // Send confirmation notification to student
+      NotificationService.sendNotificationToUser(
+        userId: user.uid,
+        title: 'Request Submitted',
+        message:
+            'Your request for ${widget.itemName} has been submitted and is pending approval.',
+        type: 'success',
+        additionalData: {
+          'requestId': requestId,
+          'itemName': widget.itemName,
+          'adviserName': adviserName,
+        },
+      ),
     ]);
   }
 

@@ -1,4 +1,5 @@
 // lib/services/equipment_service.dart
+import 'package:flutter/foundation.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../models/equipment_models.dart';
 
@@ -45,7 +46,7 @@ class EquipmentService {
         }
       }
     } catch (e) {
-      print('Error loading equipment categories: $e');
+      debugPrint('Error loading equipment categories: $e');
       rethrow;
     }
 
@@ -77,7 +78,7 @@ class EquipmentService {
         }
       }
     } catch (e) {
-      print('Error loading category items: $e');
+      debugPrint('Error loading category items: $e');
       rethrow;
     }
 
@@ -118,7 +119,7 @@ class EquipmentService {
         }
       }
     } catch (e) {
-      print('Error loading all items: $e');
+      debugPrint('Error loading all items: $e');
       rethrow;
     }
 
@@ -131,7 +132,7 @@ class EquipmentService {
       final categoryRef = _database.ref().child('equipment_categories').push();
       await categoryRef.set(category.toMap());
     } catch (e) {
-      print('Error adding category: $e');
+      debugPrint('Error adding category: $e');
       rethrow;
     }
   }
@@ -149,7 +150,7 @@ class EquipmentService {
           .child(id)
           .update(data);
     } catch (e) {
-      print('Error updating category: $e');
+      debugPrint('Error updating category: $e');
       rethrow;
     }
   }
@@ -163,7 +164,7 @@ class EquipmentService {
           .child(categoryId)
           .remove();
     } catch (e) {
-      print('Error deleting category: $e');
+      debugPrint('Error deleting category: $e');
       rethrow;
     }
   }
@@ -184,7 +185,7 @@ class EquipmentService {
       // Update category counts
       await _updateCategoryCounts(item.categoryId);
     } catch (e) {
-      print('Error adding item: $e');
+      debugPrint('Error adding item: $e');
       rethrow;
     }
   }
@@ -210,7 +211,7 @@ class EquipmentService {
         await _updateCategoryCounts(categoryId);
       }
     } catch (e) {
-      print('Error updating item: $e');
+      debugPrint('Error updating item: $e');
       rethrow;
     }
   }
@@ -229,7 +230,7 @@ class EquipmentService {
       // Update category counts
       await _updateCategoryCounts(categoryId);
     } catch (e) {
-      print('Error deleting item: $e');
+      debugPrint('Error deleting item: $e');
       rethrow;
     }
   }
@@ -270,7 +271,7 @@ class EquipmentService {
             'updatedAt': DateTime.now().toIso8601String(),
           });
     } catch (e) {
-      print('Error updating category counts: $e');
+      debugPrint('Error updating category counts: $e');
     }
   }
 
@@ -299,7 +300,7 @@ class EquipmentService {
       // Update the item status
       await updateItem(categoryId, itemId, {'status': 'Reserved'});
     } catch (e) {
-      print('Error creating reservation: $e');
+      debugPrint('Error creating reservation: $e');
       rethrow;
     }
   }

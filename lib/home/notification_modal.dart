@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 class NotificationModal extends StatefulWidget {
   const NotificationModal({super.key});
@@ -8,7 +10,7 @@ class NotificationModal extends StatefulWidget {
 }
 
 class _NotificationModalState extends State<NotificationModal> {
-  final List<NotificationItem> _notifications = [];
+  List<NotificationItem> _notifications = [];
   bool _isLoading = true;
 
   @override
@@ -18,47 +20,70 @@ class _NotificationModalState extends State<NotificationModal> {
   }
 
   Future<void> _loadNotifications() async {
-    // Simulated notifications - replace with actual Firebase data
-    await Future.delayed(const Duration(seconds: 1));
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user == null) {
+        setState(() => _isLoading = false);
+        return;
+      }
 
-    setState(() {
-      _notifications.addAll([
-        NotificationItem(
-          id: '1',
-          title: 'Equipment Request Approved',
-          message: 'Your request for the microscope has been approved.',
-          timestamp: DateTime.now().subtract(const Duration(minutes: 30)),
-          type: NotificationType.success,
-          isRead: false,
-        ),
-        NotificationItem(
-          id: '2',
-          title: 'New Announcement',
-          message: 'Lab will be closed tomorrow for maintenance.',
-          timestamp: DateTime.now().subtract(const Duration(hours: 2)),
-          type: NotificationType.announcement,
-          isRead: false,
-        ),
-        NotificationItem(
-          id: '3',
-          title: 'Equipment Return Reminder',
-          message: 'Please return the pH meter by 5:00 PM today.',
-          timestamp: DateTime.now().subtract(const Duration(hours: 5)),
-          type: NotificationType.warning,
-          isRead: true,
-        ),
-        NotificationItem(
-          id: '4',
-          title: 'Request Rejected',
-          message:
-              'Your request for the centrifuge was rejected. Reason: Already reserved.',
-          timestamp: DateTime.now().subtract(const Duration(days: 1)),
-          type: NotificationType.error,
-          isRead: true,
-        ),
-      ]);
-      _isLoading = false;
-    });
+      // Load user-specific notifications
+      final snapshot =
+          await FirebaseDatabase.instance
+              .ref()
+              .child('notifications')
+              .child(user.uid)
+              .orderByChild('timestamp')
+              .get();
+
+      List<NotificationItem> notifications = [];
+
+      if (snapshot.exists) {
+        final data = snapshot.value as Map<dynamic, dynamic>;
+        data.forEach((key, value) {
+          final notificationData = value as Map<dynamic, dynamic>;
+          notifications.add(NotificationItem.fromMap(key, notificationData));
+        });
+      }
+
+      // Add system notifications (announcements, maintenance, etc.)
+      await _loadSystemNotifications(notifications);
+
+      // Sort by timestamp (newest first)
+      notifications.sort((a, b) => b.timestamp.compareTo(a.timestamp));
+
+      setState(() {
+        _notifications = notifications;
+        _isLoading = false;
+      });
+    } catch (e) {
+      debugPrint('Error loading notifications: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _loadSystemNotifications(
+    List<NotificationItem> notifications,
+  ) async {
+    try {
+      // Load system-wide notifications
+      final snapshot =
+          await FirebaseDatabase.instance
+              .ref()
+              .child('system_notifications')
+              .orderByChild('timestamp')
+              .get();
+
+      if (snapshot.exists) {
+        final data = snapshot.value as Map<dynamic, dynamic>;
+        data.forEach((key, value) {
+          final notificationData = value as Map<dynamic, dynamic>;
+          notifications.add(NotificationItem.fromMap(key, notificationData));
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading system notifications: $e');
+    }
   }
 
   Future<void> _markAsRead(String notificationId) async {
@@ -69,7 +94,19 @@ class _NotificationModalState extends State<NotificationModal> {
       }
     });
 
-    // TODO: Update read status in Firebase
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseDatabase.instance
+            .ref()
+            .child('notifications')
+            .child(user.uid)
+            .child(notificationId)
+            .update({'isRead': true});
+      }
+    } catch (e) {
+      debugPrint('Error updating notification read status: $e');
+    }
   }
 
   Future<void> _deleteNotification(String notificationId) async {
@@ -77,7 +114,19 @@ class _NotificationModalState extends State<NotificationModal> {
       _notifications.removeWhere((n) => n.id == notificationId);
     });
 
-    // TODO: Delete from Firebase
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        await FirebaseDatabase.instance
+            .ref()
+            .child('notifications')
+            .child(user.uid)
+            .child(notificationId)
+            .remove();
+      }
+    } catch (e) {
+      debugPrint('Error deleting notification: $e');
+    }
   }
 
   Future<void> _clearAllNotifications() async {
@@ -107,7 +156,19 @@ class _NotificationModalState extends State<NotificationModal> {
       setState(() {
         _notifications.clear();
       });
-      // TODO: Clear from Firebase
+
+      try {
+        final user = FirebaseAuth.instance.currentUser;
+        if (user != null) {
+          await FirebaseDatabase.instance
+              .ref()
+              .child('notifications')
+              .child(user.uid)
+              .remove();
+        }
+      } catch (e) {
+        debugPrint('Error clearing notifications: $e');
+      }
     }
   }
 
@@ -223,9 +284,7 @@ class _NotificationModalState extends State<NotificationModal> {
                                 content: const Text('Notification deleted'),
                                 action: SnackBarAction(
                                   label: 'Undo',
-                                  onPressed: () {
-                                    // TODO: Implement undo
-                                  },
+                                  onPressed: () {},
                                 ),
                               ),
                             );
@@ -235,13 +294,12 @@ class _NotificationModalState extends State<NotificationModal> {
                               if (!notification.isRead) {
                                 _markAsRead(notification.id);
                               }
-                              // TODO: Handle notification tap
                             },
                             child: Container(
                               color:
                                   notification.isRead
                                       ? Colors.transparent
-                                      : Colors.blue.withOpacity(0.05),
+                                      : Colors.blue.withValues(alpha: 0.05),
                               padding: const EdgeInsets.all(16),
                               child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -251,8 +309,8 @@ class _NotificationModalState extends State<NotificationModal> {
                                     width: 40,
                                     height: 40,
                                     decoration: BoxDecoration(
-                                      color: notification.color.withOpacity(
-                                        0.1,
+                                      color: notification.color.withValues(
+                                        alpha: 0.1,
                                       ),
                                       shape: BoxShape.circle,
                                     ),
@@ -399,6 +457,37 @@ class NotificationItem {
         return Colors.blue;
       case NotificationType.info:
         return Colors.grey;
+    }
+  }
+
+  factory NotificationItem.fromMap(String id, Map<dynamic, dynamic> data) {
+    return NotificationItem(
+      id: id,
+      title: data['title'] ?? 'Notification',
+      message: data['message'] ?? '',
+      timestamp:
+          data['timestamp'] != null
+              ? DateTime.parse(data['timestamp'])
+              : DateTime.now(),
+      type: _parseNotificationType(data['type'] ?? 'info'),
+      isRead: data['isRead'] ?? false,
+    );
+  }
+
+  static NotificationType _parseNotificationType(String type) {
+    switch (type.toLowerCase()) {
+      case 'success':
+        return NotificationType.success;
+      case 'error':
+        return NotificationType.error;
+      case 'warning':
+        return NotificationType.warning;
+      case 'announcement':
+        return NotificationType.announcement;
+      case 'info':
+        return NotificationType.info;
+      default:
+        return NotificationType.info;
     }
   }
 }

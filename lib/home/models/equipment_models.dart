@@ -53,7 +53,7 @@ class EquipmentCategory {
       'title': title,
       'availableCount': availableCount,
       'icon': getIconString(icon),
-      'colorHex': color.value.toRadixString(16).substring(2),
+      'colorHex': color.toARGB32().toRadixString(16).substring(2),
       'totalCount': totalCount,
       'createdAt': createdAt ?? DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
@@ -68,7 +68,7 @@ class EquipmentCategory {
           int.parse(data['colorHex'], radix: 16) + 0xFF000000,
         );
       } catch (e) {
-        print('Error parsing color: $e');
+        debugPrint('Error parsing color: $e');
       }
     }
 

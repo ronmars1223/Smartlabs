@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
+import 'service/notification_service.dart';
 
 class RequestPage extends StatefulWidget {
   const RequestPage({super.key});
@@ -81,7 +82,11 @@ class _RequestPageState extends State<RequestPage>
     }
   }
 
-  Future<void> _updateRequestStatus(String requestId, String status) async {
+  Future<void> _updateRequestStatus(
+    String requestId,
+    String status,
+    Map<String, dynamic> request,
+  ) async {
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
@@ -100,6 +105,17 @@ class _RequestPageState extends State<RequestPage>
             .update(updateData),
         _updateStudentRequest(requestId, updateData),
       ]);
+
+      // Send notification to student about status change
+      await NotificationService.notifyRequestStatusChange(
+        userId: request['userId'],
+        itemName: request['itemName'],
+        status: status,
+        reason:
+            status == 'rejected'
+                ? 'Please contact your adviser for more details'
+                : null,
+      );
 
       _showSnackBar(
         'Request ${status.toUpperCase()} successfully!',
@@ -138,7 +154,7 @@ class _RequestPageState extends State<RequestPage>
         }
       }
     } catch (e) {
-      print('Error updating student request: $e');
+      debugPrint('Error updating student request: $e');
     }
   }
 
@@ -213,7 +229,7 @@ class _RequestPageState extends State<RequestPage>
             color: Colors.white,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.05),
+                color: Colors.black.withValues(alpha: 0.05),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -387,12 +403,12 @@ class _RequestPageState extends State<RequestPage>
     return Container(
       margin: const EdgeInsets.only(bottom: 20),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.95),
+        color: Colors.white.withValues(alpha: 0.95),
         borderRadius: BorderRadius.circular(16),
         border: Border(left: BorderSide(color: statusColor, width: 4)),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
+            color: Colors.black.withValues(alpha: 0.05),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -422,7 +438,7 @@ class _RequestPageState extends State<RequestPage>
                     vertical: 4,
                   ),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.12),
+                    color: statusColor.withValues(alpha: 0.12),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -463,7 +479,11 @@ class _RequestPageState extends State<RequestPage>
                   Expanded(
                     child: OutlinedButton.icon(
                       onPressed:
-                          () => _updateRequestStatus(request['id'], 'rejected'),
+                          () => _updateRequestStatus(
+                            request['id'],
+                            'rejected',
+                            request,
+                          ),
                       icon: const Icon(Icons.close, size: 18),
                       label: const Text('Reject'),
                       style: OutlinedButton.styleFrom(
@@ -480,7 +500,11 @@ class _RequestPageState extends State<RequestPage>
                   Expanded(
                     child: ElevatedButton.icon(
                       onPressed:
-                          () => _updateRequestStatus(request['id'], 'approved'),
+                          () => _updateRequestStatus(
+                            request['id'],
+                            'approved',
+                            request,
+                          ),
                       icon: const Icon(Icons.check, size: 18),
                       label: const Text('Approve'),
                       style: ElevatedButton.styleFrom(
@@ -526,38 +550,6 @@ class _RequestPageState extends State<RequestPage>
                 fontSize: 14,
                 fontWeight: FontWeight.w500,
                 color: Color(0xFF2C3E50),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildInfoRow(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 100,
-            child: Text(
-              '$label:',
-              style: const TextStyle(
-                fontWeight: FontWeight.w600,
-                color: Color(0xFF34495E),
-                fontSize: 14,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(
-                fontWeight: FontWeight.w400,
-                color: Color(0xFF2C3E50),
-                fontSize: 14,
               ),
             ),
           ),
