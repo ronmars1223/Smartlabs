@@ -2,10 +2,6 @@
 
 A comprehensive Flutter mobile application for managing laboratory equipment borrowing, tracking, and analytics in educational institutions. Built with Flutter and Firebase for real-time data management and intelligent equipment recommendations.
 
-<p align="center">
-  <img src="img/logo.png" alt="SmartLab Logo" width="120">
-</p>
-
 ## 📋 Table of Contents
 
 - [Overview](#overview)

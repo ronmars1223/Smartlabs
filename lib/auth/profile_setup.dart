@@ -95,7 +95,7 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Image.asset('img/logo.png', width: 32, height: 32),
+            const Icon(Icons.science, size: 32),
             const SizedBox(width: 8),
             const Text(
               "SMARTLAB",

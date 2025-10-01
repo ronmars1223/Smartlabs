@@ -169,7 +169,7 @@ class _LoginPageState extends State<LoginPage> {
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const SizedBox(height: 40), // Space for status bar
-                  Image.asset('img/logo.png', width: 100, height: 100),
+                  const Icon(Icons.science, size: 100, color: Colors.white),
                   const SizedBox(height: 12),
                   const Text(
                     'SMARTLAB',

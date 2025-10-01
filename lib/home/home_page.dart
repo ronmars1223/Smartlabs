@@ -136,7 +136,7 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: Row(
           children: [
-            Image.asset('img/logo.png', width: 28, height: 28),
+            const Icon(Icons.science, size: 28),
             const SizedBox(width: 8),
             const Text(
               "SMARTLAB",
