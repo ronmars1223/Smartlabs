@@ -48,6 +48,22 @@ class _EquipmentManagementPageState extends State<EquipmentManagementPage>
     }
   }
 
+  Future<void> _recalculateCounts() async {
+    setState(() => _isLoading = true);
+
+    try {
+      await EquipmentService.recalculateAllCategoryCounts();
+      await _loadEquipmentData();
+      _showSnackBar(
+        'All category counts have been recalculated!',
+        isError: false,
+      );
+    } catch (e) {
+      _showSnackBar('Error recalculating counts: $e', isError: true);
+      setState(() => _isLoading = false);
+    }
+  }
+
   Future<void> _addCategory() async {
     final nameController = TextEditingController();
     String selectedIcon = 'science';
@@ -494,6 +510,18 @@ class _EquipmentManagementPageState extends State<EquipmentManagementPage>
                   ),
                 ),
                 const Spacer(),
+                Container(
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF8F9FA),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: IconButton(
+                    icon: const Icon(Icons.calculate, color: Color(0xFF2AA39F)),
+                    onPressed: _recalculateCounts,
+                    tooltip: 'Fix counts',
+                  ),
+                ),
+                const SizedBox(width: 8),
                 Container(
                   decoration: BoxDecoration(
                     color: const Color(0xFFF8F9FA),

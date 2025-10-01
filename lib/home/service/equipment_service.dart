@@ -251,12 +251,16 @@ class EquipmentService {
 
       if (snapshot.exists) {
         final data = snapshot.value as Map<dynamic, dynamic>;
-        totalCount = data.length;
 
         for (var itemData in data.values) {
           final item = itemData as Map<dynamic, dynamic>;
+          final quantity =
+              int.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
+
+          totalCount += quantity;
+
           if (item['status']?.toString().toLowerCase() == 'available') {
-            availableCount++;
+            availableCount += quantity;
           }
         }
       }
@@ -325,5 +329,27 @@ class EquipmentService {
     return allItems.where((item) {
       return item.status.toLowerCase() == status.toLowerCase();
     }).toList();
+  }
+
+  // Recalculate counts for all categories (one-time fix)
+  static Future<void> recalculateAllCategoryCounts() async {
+    try {
+      final snapshot =
+          await _database.ref().child('equipment_categories').get();
+
+      if (snapshot.exists) {
+        final data = snapshot.value as Map<dynamic, dynamic>;
+
+        for (var categoryId in data.keys) {
+          await _updateCategoryCounts(categoryId);
+          debugPrint('Updated counts for category: $categoryId');
+        }
+
+        debugPrint('All category counts recalculated successfully!');
+      }
+    } catch (e) {
+      debugPrint('Error recalculating category counts: $e');
+      rethrow;
+    }
   }
 }
