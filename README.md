@@ -449,14 +449,6 @@ Contributions are welcome! Please follow these steps:
 - Comment complex logic
 - Write widget documentation
 
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👨‍💻 Authors
-
-- **Your Name** - Initial work
-
 ## 🙏 Acknowledgments
 
 - Flutter team for the amazing framework
@@ -466,7 +458,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-For support, email [your-email@example.com] or open an issue in the repository.
+For support, email [dev.bimrochee@gmail.com] or open an issue in the repository.
 
 ---
 
