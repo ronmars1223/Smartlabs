@@ -8,8 +8,6 @@ import 'equipment_page.dart';
 import 'profile_page.dart';
 import 'request_page.dart';
 import 'borrowing_history_page.dart';
-import 'analytics_page.dart';
-import 'equipment_management_page.dart';
 import 'announcement_card.dart'; // Import the redesigned announcement card
 
 class HomePage extends StatefulWidget {
@@ -59,13 +57,11 @@ class _HomePageState extends State<HomePage> {
         const ProfilePage(),
       ];
     } else if (_userRole == 'teacher') {
-      // Teacher pages: Home, Equipment, Management, Requests, Analytics, Profile
+      // Teacher pages: Home, Equipment, Requests, Profile
       _pages = [
         _buildHomeContent(),
         const EquipmentPage(),
-        const EquipmentManagementPage(),
         const RequestPage(),
-        const AnalyticsPage(),
         const ProfilePage(),
       ];
     } else {

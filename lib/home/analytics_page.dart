@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:app/home/service/association_mining_service.dart';
 
 class AnalyticsPage extends StatefulWidget {
   const AnalyticsPage({super.key});
@@ -12,6 +13,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   bool _isLoading = true;
   List<Map<String, dynamic>> _popularEquipment = [];
   List<Map<String, dynamic>> _recentActivity = [];
+  List<AssociationRule> _associationRules = [];
   int _totalRequests = 0;
   int _approvedRequests = 0;
   int _pendingRequests = 0;
@@ -31,6 +33,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
         _loadRequestStatistics(),
         _loadPopularEquipment(),
         _loadRecentActivity(),
+        _loadAssociationRules(),
       ]);
 
       setState(() => _isLoading = false);
@@ -159,6 +162,22 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     }
   }
 
+  Future<void> _loadAssociationRules() async {
+    try {
+      final rules = await AssociationMiningService.findAssociationRules(
+        minSupport: 0.02,
+        minConfidence: 0.3,
+        minLift: 1.0,
+      );
+
+      setState(() {
+        _associationRules = rules.take(10).toList();
+      });
+    } catch (e) {
+      debugPrint('Error loading association rules: $e');
+    }
+  }
+
   void _showSnackBar(String message, {required bool isError}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -211,6 +230,8 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                     _buildStatisticsCards(),
                     const SizedBox(height: 24),
                     _buildPopularEquipment(),
+                    const SizedBox(height: 24),
+                    _buildAssociationRules(),
                     const SizedBox(height: 24),
                     _buildRecentActivity(),
                   ],
@@ -571,6 +592,259 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                   ),
         ),
       ],
+    );
+  }
+
+  Widget _buildAssociationRules() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text(
+              'Frequently Borrowed Together',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF2C3E50),
+              ),
+            ),
+            const SizedBox(width: 8),
+            Tooltip(
+              message:
+                  'Items that students frequently borrow together, discovered through association rule mining',
+              child: Icon(
+                Icons.info_outline,
+                size: 18,
+                color: Colors.grey.shade600,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.shade200,
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child:
+              _associationRules.isEmpty
+                  ? const Padding(
+                    padding: EdgeInsets.all(40),
+                    child: Center(
+                      child: Column(
+                        children: [
+                          Icon(Icons.auto_graph, size: 48, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text(
+                            'No association patterns found',
+                            style: TextStyle(fontSize: 16, color: Colors.grey),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Need more borrowing data to detect patterns',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                            textAlign: TextAlign.center,
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                  : Column(
+                    children: [
+                      // Header row explaining the metrics
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(
+                            0xFF2AA39F,
+                          ).withValues(alpha: 0.05),
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(16),
+                            topRight: Radius.circular(16),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            const Expanded(
+                              flex: 3,
+                              child: Text(
+                                'Association Pattern',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                  color: Color(0xFF2C3E50),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Tooltip(
+                                message:
+                                    'How often these items appear together',
+                                child: Text(
+                                  'Support',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Tooltip(
+                                message:
+                                    'Probability of borrowing item B when borrowing item A',
+                                child: Text(
+                                  'Conf.',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              child: Tooltip(
+                                message:
+                                    'Strength of association (>1 = strong correlation)',
+                                child: Text(
+                                  'Lift',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 12,
+                                    color: Colors.grey.shade700,
+                                  ),
+                                  textAlign: TextAlign.center,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      ListView.separated(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _associationRules.length,
+                        separatorBuilder:
+                            (context, index) =>
+                                Divider(height: 1, color: Colors.grey.shade200),
+                        itemBuilder: (context, index) {
+                          final rule = _associationRules[index];
+                          return _buildAssociationRuleItem(rule);
+                        },
+                      ),
+                    ],
+                  ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildAssociationRuleItem(AssociationRule rule) {
+    // Determine color intensity based on lift
+    Color getLiftColor(double lift) {
+      if (lift >= 3.0) return const Color(0xFF27AE60); // Strong
+      if (lift >= 2.0) return const Color(0xFF52B788); // Moderate
+      return const Color(0xFFF39C12); // Weak
+    }
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Expanded(
+            flex: 3,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        rule.itemA,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      child: Icon(
+                        Icons.arrow_forward,
+                        size: 16,
+                        color: Color(0xFF2AA39F),
+                      ),
+                    ),
+                    Flexible(
+                      child: Text(
+                        rule.itemB,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          fontSize: 13,
+                          color: Color(0xFF2AA39F),
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${rule.coOccurrenceCount} times together',
+                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '${(rule.support * 100).toStringAsFixed(1)}%',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Expanded(
+            child: Text(
+              '${(rule.confidence * 100).toStringAsFixed(0)}%',
+              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: getLiftColor(rule.lift).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                rule.lift.toStringAsFixed(2),
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: getLiftColor(rule.lift),
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

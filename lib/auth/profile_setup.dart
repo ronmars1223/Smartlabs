@@ -13,6 +13,9 @@ class ProfileSetupPage extends StatefulWidget {
 
 class _ProfileSetupPageState extends State<ProfileSetupPage> {
   String _selectedRole = ''; // Can be 'student' or 'teacher'
+  String _selectedCourse = '';
+  String _selectedYearLevel = '';
+  String _selectedSection = '';
   bool _isLoading = false;
   late DatabaseReference _database;
 
@@ -33,14 +36,31 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
       return;
     }
 
+    // Validate student-specific fields
+    if (_selectedRole == 'student') {
+      if (_selectedCourse.isEmpty ||
+          _selectedYearLevel.isEmpty ||
+          _selectedSection.isEmpty) {
+        _showSnackBar("Please fill in all student information");
+        return;
+      }
+    }
+
     setState(() => _isLoading = true);
 
     try {
+      // Prepare user data
+      final userData = {'role': _selectedRole, 'profile_setup': true};
+
+      // Add course info for students
+      if (_selectedRole == 'student') {
+        userData['course'] = _selectedCourse;
+        userData['yearLevel'] = _selectedYearLevel;
+        userData['section'] = _selectedSection;
+      }
+
       // Update user data with role and mark profile setup as complete
-      await _database.child('users').child(widget.userId).update({
-        'role': _selectedRole,
-        'profile_setup': true,
-      });
+      await _database.child('users').child(widget.userId).update(userData);
 
       _showSnackBar("Profile setup complete!");
 
@@ -129,6 +149,96 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
                 isSelected: _selectedRole == 'teacher',
                 onTap: () => setState(() => _selectedRole = 'teacher'),
               ),
+
+              const SizedBox(height: 30),
+
+              // Student-specific fields (only show if student is selected)
+              if (_selectedRole == 'student') ...[
+                const Text(
+                  'Student Information',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 16),
+
+                // Course dropdown
+                DropdownButtonFormField<String>(
+                  value: _selectedCourse.isEmpty ? null : _selectedCourse,
+                  decoration: InputDecoration(
+                    labelText: 'Course',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                  ),
+                  items:
+                      [
+                        'BSIT',
+                        'BSCS',
+                        'BSCpE',
+                        'BSCE',
+                        'BSEE',
+                        'BSME',
+                        'ACT',
+                      ].map((course) {
+                        return DropdownMenuItem(
+                          value: course,
+                          child: Text(course),
+                        );
+                      }).toList(),
+                  onChanged: (value) {
+                    setState(() => _selectedCourse = value!);
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Year Level dropdown
+                DropdownButtonFormField<String>(
+                  value: _selectedYearLevel.isEmpty ? null : _selectedYearLevel,
+                  decoration: InputDecoration(
+                    labelText: 'Year Level',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                  ),
+                  items:
+                      ['1', '2', '3', '4'].map((year) {
+                        return DropdownMenuItem(
+                          value: year,
+                          child: Text('$year${_getYearSuffix(year)} Year'),
+                        );
+                      }).toList(),
+                  onChanged: (value) {
+                    setState(() => _selectedYearLevel = value!);
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // Section dropdown
+                DropdownButtonFormField<String>(
+                  value: _selectedSection.isEmpty ? null : _selectedSection,
+                  decoration: InputDecoration(
+                    labelText: 'Section',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    filled: true,
+                    fillColor: Colors.grey[100],
+                  ),
+                  items:
+                      ['A', 'B', 'C', 'D', 'E'].map((section) {
+                        return DropdownMenuItem(
+                          value: section,
+                          child: Text('Section $section'),
+                        );
+                      }).toList(),
+                  onChanged: (value) {
+                    setState(() => _selectedSection = value!);
+                  },
+                ),
+              ],
 
               const Spacer(),
 
@@ -254,5 +364,20 @@ class _ProfileSetupPageState extends State<ProfileSetupPage> {
         ),
       ),
     );
+  }
+
+  String _getYearSuffix(String year) {
+    switch (year) {
+      case '1':
+        return 'st';
+      case '2':
+        return 'nd';
+      case '3':
+        return 'rd';
+      case '4':
+        return 'th';
+      default:
+        return 'th';
+    }
   }
 }

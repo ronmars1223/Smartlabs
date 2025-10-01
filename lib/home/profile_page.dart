@@ -14,6 +14,9 @@ class _ProfilePageState extends State<ProfilePage> {
   String _userName = 'User';
   String _userRole = '';
   String _userEmail = '';
+  String _userCourse = '';
+  String _userYearLevel = '';
+  String _userSection = '';
 
   @override
   void initState() {
@@ -42,6 +45,9 @@ class _ProfilePageState extends State<ProfilePage> {
         setState(() {
           _userName = data['name'] ?? 'User';
           _userRole = data['role'] ?? 'Unknown';
+          _userCourse = data['course'] ?? '';
+          _userYearLevel = data['yearLevel'] ?? '';
+          _userSection = data['section'] ?? '';
           _isLoading = false;
         });
       } else {
@@ -116,6 +122,18 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
             ),
+            // Show course info for students
+            if (_userRole == 'student' && _userCourse.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Text(
+                '$_userCourse $_userYearLevel-$_userSection',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.grey.shade700,
+                ),
+              ),
+            ],
             const SizedBox(height: 40),
 
             _buildSectionHeader('Account'),

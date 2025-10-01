@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:app/home/service/cart_service.dart';
+import 'package:app/home/service/association_mining_service.dart';
 import 'package:app/home/batch_borrow_form_page.dart';
 
 class CartPage extends StatefulWidget {
@@ -11,6 +12,36 @@ class CartPage extends StatefulWidget {
 
 class _CartPageState extends State<CartPage> {
   final CartService _cartService = CartService();
+  List<String> _recommendations = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadRecommendations();
+  }
+
+  Future<void> _loadRecommendations() async {
+    if (_cartService.isEmpty) {
+      setState(() {
+        _recommendations = [];
+      });
+      return;
+    }
+
+    try {
+      final itemNames =
+          _cartService.items.map((item) => item.itemName).toList();
+      final recommendations = await AssociationMiningService.getRecommendations(
+        itemNames,
+      );
+
+      setState(() {
+        _recommendations = recommendations;
+      });
+    } catch (e) {
+      // Silently fail - recommendations are optional
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -91,15 +122,40 @@ class _CartPageState extends State<CartPage> {
 
           return Column(
             children: [
-              // Cart items list
+              // Cart items list with recommendations
               Expanded(
-                child: ListView.builder(
+                child: SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
-                  itemCount: _cartService.items.length,
-                  itemBuilder: (context, index) {
-                    final item = _cartService.items[index];
-                    return _buildCartItem(item);
-                  },
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Cart items
+                      const Text(
+                        'Your Items',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF2C3E50),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ListView.builder(
+                        shrinkWrap: true,
+                        physics: const NeverScrollableScrollPhysics(),
+                        itemCount: _cartService.items.length,
+                        itemBuilder: (context, index) {
+                          final item = _cartService.items[index];
+                          return _buildCartItem(item);
+                        },
+                      ),
+
+                      // Recommendations section
+                      if (_recommendations.isNotEmpty) ...[
+                        const SizedBox(height: 24),
+                        _buildRecommendationsSection(),
+                      ],
+                    ],
+                  ),
                 ),
               ),
 
@@ -268,6 +324,116 @@ class _CartPageState extends State<CartPage> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildRecommendationsSection() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            const Color(0xFF2AA39F).withValues(alpha: 0.05),
+            const Color(0xFF52B788).withValues(alpha: 0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: const Color(0xFF2AA39F).withValues(alpha: 0.2),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF2AA39F).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(
+                  Icons.lightbulb_outline,
+                  color: Color(0xFF2AA39F),
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'You might also need',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF2C3E50),
+                      ),
+                    ),
+                    Text(
+                      'Based on borrowing patterns',
+                      style: TextStyle(fontSize: 12, color: Color(0xFF7F8C8D)),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children:
+                _recommendations.map((itemName) {
+                  return Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: const Color(0xFF2AA39F).withValues(alpha: 0.3),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.05),
+                          blurRadius: 4,
+                          offset: const Offset(0, 2),
+                        ),
+                      ],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(
+                          Icons.auto_awesome,
+                          size: 16,
+                          color: Color(0xFF2AA39F),
+                        ),
+                        const SizedBox(width: 6),
+                        Flexible(
+                          child: Text(
+                            itemName,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                              color: Color(0xFF2C3E50),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                }).toList(),
+          ),
+        ],
       ),
     );
   }
