@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 
 import 'widgets/form_sections.dart';
 import 'widgets/form_widgets.dart';
+import 'widgets/signature_pad.dart';
 
 class BorrowFormPage extends StatefulWidget {
   final String itemName;
@@ -121,6 +122,14 @@ class _BorrowFormPageState extends State<BorrowFormPage>
       return;
     }
 
+    // Show signature dialog first
+    final String? signature = await _showSignatureDialog();
+
+    if (signature == null) {
+      // User cancelled or cleared the signature
+      return;
+    }
+
     setState(() {
       _isSubmitting = true;
     });
@@ -134,6 +143,7 @@ class _BorrowFormPageState extends State<BorrowFormPage>
         dateToBeUsed: _dateToBeUsed!,
         dateToReturn: _dateToReturn!,
         adviserName: _adviserController.text,
+        signature: signature,
       );
 
       if (mounted) {
@@ -159,6 +169,19 @@ class _BorrowFormPageState extends State<BorrowFormPage>
         });
       }
     }
+  }
+
+  Future<String?> _showSignatureDialog() async {
+    return await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder:
+          (context) => SignaturePad(
+            onSignatureComplete: (signature) {
+              Navigator.pop(context, signature);
+            },
+          ),
+    );
   }
 
   @override

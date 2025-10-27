@@ -40,6 +40,7 @@ class FormService {
     required DateTime dateToBeUsed,
     required DateTime dateToReturn,
     required String adviserName,
+    String? signature,
   }) async {
     final user = FirebaseAuth.instance.currentUser;
     if (user == null) {
@@ -67,6 +68,7 @@ class FormService {
       'adviserId': adviserId,
       'status': 'pending',
       'requestedAt': DateTime.now().toIso8601String(),
+      if (signature != null) 'signature': signature,
     };
 
     final borrowRef =
