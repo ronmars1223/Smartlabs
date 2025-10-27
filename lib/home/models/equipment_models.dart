@@ -94,6 +94,13 @@ class EquipmentItem {
   final String quantity;
   final String? createdAt;
   final String? updatedAt;
+  final String? model;
+  final String? serialNumber;
+  final String? condition;
+  final String? location;
+  final String? labId;
+  final String? assignedTo;
+  final String? imageUrl;
 
   EquipmentItem({
     required this.id,
@@ -104,6 +111,13 @@ class EquipmentItem {
     this.quantity = '1',
     this.createdAt,
     this.updatedAt,
+    this.model,
+    this.serialNumber,
+    this.condition,
+    this.location,
+    this.labId,
+    this.assignedTo,
+    this.imageUrl,
   });
 
   Map<String, dynamic> toMap() {
@@ -113,6 +127,13 @@ class EquipmentItem {
       'categoryId': categoryId,
       'description': description ?? '',
       'quantity': quantity,
+      'model': model ?? '',
+      'serialNumber': serialNumber ?? '',
+      'condition': condition ?? '',
+      'location': location ?? '',
+      'labId': labId ?? '',
+      'assignedTo': assignedTo ?? '',
+      'imageUrl': imageUrl ?? '',
       'createdAt': createdAt ?? DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
     };
@@ -126,6 +147,13 @@ class EquipmentItem {
       categoryId: data['categoryId'] ?? '',
       description: data['description'],
       quantity: data['quantity']?.toString() ?? '1',
+      model: data['model'],
+      serialNumber: data['serialNumber'],
+      condition: data['condition'],
+      location: data['location'],
+      labId: data['labId'],
+      assignedTo: data['assignedTo'],
+      imageUrl: data['imageUrl'],
       createdAt: data['createdAt'],
       updatedAt: data['updatedAt'],
     );
