@@ -23,6 +23,25 @@ class _BorrowingHistoryPageState extends State<BorrowingHistoryPage>
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
     _loadBorrowingHistory();
+    _setupRealtimeListener();
+  }
+
+  void _setupRealtimeListener() {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    // Listen for changes to borrow_requests for this user
+    FirebaseDatabase.instance
+        .ref()
+        .child('borrow_requests')
+        .orderByChild('userId')
+        .equalTo(user.uid)
+        .onValue
+        .listen((event) {
+          if (mounted && event.snapshot.exists) {
+            _processSnapshot(event.snapshot);
+          }
+        });
   }
 
   @override
@@ -49,48 +68,59 @@ class _BorrowingHistoryPageState extends State<BorrowingHistoryPage>
               .equalTo(user.uid)
               .get();
 
-      List<Map<String, dynamic>> userRequests = [];
-
-      if (snapshot.exists) {
-        final data = snapshot.value as Map<dynamic, dynamic>;
-        data.forEach((key, value) {
-          final request = Map<String, dynamic>.from(value);
-          request['id'] = key;
-          userRequests.add(request);
-        });
-
-        userRequests.sort(
-          (a, b) => b['requestedAt'].toString().compareTo(
-            a['requestedAt'].toString(),
-          ),
-        );
-      }
+      _processSnapshot(snapshot);
 
       setState(() {
-        _allRequests = userRequests;
-        _currentBorrows =
-            userRequests
-                .where(
-                  (r) =>
-                      r['status'] == 'approved' &&
-                      (r['returnedAt'] == null || r['returnedAt'] == ''),
-                )
-                .toList();
-        _returnedItems =
-            userRequests
-                .where(
-                  (r) =>
-                      r['status'] == 'approved' &&
-                      r['returnedAt'] != null &&
-                      r['returnedAt'] != '',
-                )
-                .toList();
         _isLoading = false;
       });
     } catch (e) {
       _showSnackBar('Error loading borrowing history: $e', isError: true);
       setState(() => _isLoading = false);
     }
+  }
+
+  void _processSnapshot(DataSnapshot snapshot) {
+    List<Map<String, dynamic>> userRequests = [];
+
+    if (snapshot.exists) {
+      final data = snapshot.value as Map<dynamic, dynamic>;
+      data.forEach((key, value) {
+        final request = Map<String, dynamic>.from(value);
+        request['id'] = key;
+        // Ensure status field exists, default to pending if missing
+        if (!request.containsKey('status') || request['status'] == null) {
+          request['status'] = 'pending';
+        }
+        userRequests.add(request);
+      });
+
+      userRequests.sort(
+        (a, b) =>
+            b['requestedAt'].toString().compareTo(a['requestedAt'].toString()),
+      );
+    }
+
+    setState(() {
+      _allRequests = userRequests;
+      _currentBorrows =
+          userRequests
+              .where(
+                (r) =>
+                    (r['status'] == 'approved' || r['status'] == 'released') &&
+                    (r['returnedAt'] == null || r['returnedAt'] == ''),
+              )
+              .toList();
+      _returnedItems =
+          userRequests
+              .where(
+                (r) =>
+                    (r['status'] == 'returned') ||
+                    (r['status'] == 'approved' &&
+                        r['returnedAt'] != null &&
+                        r['returnedAt'] != ''),
+              )
+              .toList();
+    });
   }
 
   Future<void> _markAsReturned(String requestId) async {
@@ -355,6 +385,11 @@ class _BorrowingHistoryPageState extends State<BorrowingHistoryPage>
         statusIcon = Icons.check_circle;
         statusText = 'Approved';
         break;
+      case 'released':
+        statusColor = const Color(0xFF2AA39F);
+        statusIcon = Icons.check_circle_outline;
+        statusText = 'Released';
+        break;
       case 'returned':
         statusColor = const Color(0xFF3498DB);
         statusIcon = Icons.assignment_turned_in;
@@ -443,7 +478,8 @@ class _BorrowingHistoryPageState extends State<BorrowingHistoryPage>
             _infoText('Requested At', requestDate),
             if (returnedDate != null) _infoText('Returned At', returnedDate),
 
-            if (showReturnButton && status == 'approved') ...[
+            if (showReturnButton &&
+                (status == 'approved' || status == 'released')) ...[
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,

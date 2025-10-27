@@ -79,6 +79,12 @@ class NotificationService {
         message = 'Your request for $itemName has been approved.';
         type = 'success';
         break;
+      case 'released':
+        title = 'Item Released';
+        message =
+            'Your request for $itemName has been released and is ready for pickup.';
+        type = 'success';
+        break;
       case 'rejected':
         title = 'Request Rejected';
         message =
