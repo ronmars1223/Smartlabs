@@ -163,7 +163,7 @@ class _CategoryItemsPageState extends State<CategoryItemsPage> {
                                 child: OutlinedButton.icon(
                                   onPressed: () => _showQuantityDialog(item),
                                   icon: const Icon(Icons.add_shopping_cart),
-                                  label: const Text('Add to Cart'),
+                                  label: const Text('Add to Request'),
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: const Color(0xFF2AA39F),
                                     side: const BorderSide(
@@ -299,7 +299,7 @@ class _CategoryItemsPageState extends State<CategoryItemsPage> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF2AA39F),
                 ),
-                child: const Text('Add to Cart'),
+                child: const Text('Add to Request'),
               ),
             ],
           ),
