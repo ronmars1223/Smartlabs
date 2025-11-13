@@ -253,7 +253,7 @@ class _BorrowFormPageState extends State<BorrowFormPage>
                     onDateSelected: _selectDate,
                   ),
 
-                  // Adviser Section
+                  // Instructor Section
                   ListenableBuilder(
                     listenable: _teacherService,
                     builder: (context, child) {

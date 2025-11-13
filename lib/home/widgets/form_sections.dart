@@ -342,7 +342,7 @@ class AdviserSection extends StatelessWidget {
       title: 'Supervision',
       children: [
         FormWidgets.buildFormField(
-          label: 'Name of the Adviser',
+          label: 'Name of the Instructor',
           child: isLoading ? _buildLoadingState() : _buildDropdown(),
         ),
       ],
@@ -383,7 +383,7 @@ class AdviserSection extends StatelessWidget {
     return DropdownButtonFormField<String>(
       value: adviserController.text.isEmpty ? null : adviserController.text,
       decoration: FormWidgets.getInputDecoration(
-        hintText: teachers.isEmpty ? 'No teachers available' : 'Select adviser',
+        hintText: teachers.isEmpty ? 'No teachers available' : 'Select instructor',
       ).copyWith(
         prefixIcon: const Icon(Icons.person_outline, color: Color(0xFF6C63FF)),
       ),
@@ -404,7 +404,7 @@ class AdviserSection extends StatelessWidget {
       onChanged: teachers.isEmpty ? null : onAdviserChanged,
       validator: (value) {
         if (adviserController.text.isEmpty) {
-          return 'Please select an adviser';
+          return 'Please select an instructor';
         }
         return null;
       },

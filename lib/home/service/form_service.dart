@@ -50,7 +50,7 @@ class FormService {
 
     final String? adviserId = await _findAdviserIdByName(adviserName);
     if (adviserId == null) {
-      throw Exception('Adviser not found');
+      throw Exception('Instructor not found');
     }
 
     final borrowRequestData = {
@@ -86,7 +86,7 @@ class FormService {
       // Store request under /borrow_requests
       borrowRef.set(borrowRequestData),
 
-      // Send notification to adviser
+      // Send notification to instructor
       NotificationService.sendNotificationToUser(
         userId: adviserId,
         title: 'New Borrow Request',

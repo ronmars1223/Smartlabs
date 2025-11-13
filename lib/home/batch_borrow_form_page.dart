@@ -80,7 +80,7 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
     }
 
     if (_adviserName.isEmpty || _adviserId.isEmpty) {
-      _showSnackBar('Please select an adviser', isError: true);
+      _showSnackBar('Please select an instructor', isError: true);
       return;
     }
 
@@ -141,7 +141,7 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
         // We only create the request here, web admin will manage quantities
       }
 
-      // Send notification to adviser about the batch request
+      // Send notification to instructor about the batch request
       requests.add(
         NotificationService.sendNotificationToUser(
           userId: _adviserId,
@@ -246,7 +246,7 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
               _buildScheduleSection(),
               const SizedBox(height: 24),
 
-              // Adviser Section
+              // Instructor Section
               _buildAdviserSection(),
               const SizedBox(height: 32),
 
@@ -537,7 +537,7 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'Select Adviser',
+            'Select Instructor',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 12),
@@ -560,7 +560,7 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
               return DropdownButtonFormField<String>(
                 value: _adviserName.isEmpty ? null : _adviserName,
                 decoration: InputDecoration(
-                  hintText: 'Choose your adviser',
+                  hintText: 'Choose your instructor',
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -587,7 +587,7 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
                 },
                 validator: (value) {
                   if (value == null || value.isEmpty) {
-                    return 'Please select an adviser';
+                    return 'Please select an instructor';
                   }
                   return null;
                 },

@@ -113,7 +113,7 @@ class _RequestPageState extends State<RequestPage>
         status: status,
         reason:
             status == 'rejected'
-                ? 'Please contact your adviser for more details'
+                ? 'Please contact your instructor for more details'
                 : null,
       );
 
