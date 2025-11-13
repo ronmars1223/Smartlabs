@@ -274,7 +274,7 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
                             ),
                           )
                           : const Text(
-                            'Submit Batch Request',
+                            'Proceed to Check Out',
                             style: TextStyle(
                               fontSize: 16,
                               fontWeight: FontWeight.w600,
