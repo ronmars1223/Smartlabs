@@ -1,6 +1,7 @@
 // lib/home/widgets/form_sections.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:app/home/service/laboratory_service.dart';
 import 'form_widgets.dart';
 
 class ItemInformationSection extends StatelessWidget {
@@ -65,26 +66,22 @@ class ItemInformationSection extends StatelessWidget {
 }
 
 class RequestDetailsSection extends StatelessWidget {
-  final String selectedLaboratory;
-  final Function(String?) onLaboratoryChanged;
+  final List<Laboratory> laboratories;
+  final bool isLoading;
+  final Laboratory? selectedLaboratory;
+  final Function(Laboratory?) onLaboratoryChanged;
   final TextEditingController quantityController;
   final TextEditingController itemNoController;
 
   const RequestDetailsSection({
     super.key,
+    required this.laboratories,
+    required this.isLoading,
     required this.selectedLaboratory,
     required this.onLaboratoryChanged,
     required this.quantityController,
     required this.itemNoController,
   });
-
-  static const List<String> _laboratories = [
-    'Laboratory 1',
-    'Laboratory 2',
-    'Laboratory 3',
-    'Laboratory 4',
-    'Laboratory 5',
-  ];
 
   @override
   Widget build(BuildContext context) {
@@ -97,20 +94,9 @@ class RequestDetailsSection extends StatelessWidget {
               flex: 2,
               child: FormWidgets.buildFormField(
                 label: 'Laboratory',
-                child: DropdownButtonFormField<String>(
-                  value: selectedLaboratory,
-                  decoration: FormWidgets.getInputDecoration().copyWith(
-                    prefixIcon: const Icon(
-                      Icons.science_outlined,
-                      color: Color(0xFF6C63FF),
-                    ),
-                  ),
-                  items:
-                      _laboratories.map((lab) {
-                        return DropdownMenuItem(value: lab, child: Text(lab));
-                      }).toList(),
-                  onChanged: onLaboratoryChanged,
-                ),
+                child: isLoading
+                    ? _buildLoadingState()
+                    : _buildLaboratoryDropdown(),
               ),
             ),
             const SizedBox(width: 16),
@@ -161,6 +147,86 @@ class RequestDetailsSection extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+
+  Widget _buildLoadingState() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F9FA),
+        border: Border.all(color: Colors.grey[200]!),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: const Row(
+        children: [
+          Icon(Icons.science_outlined, color: Color(0xFF6C63FF)),
+          SizedBox(width: 12),
+          SizedBox(
+            width: 16,
+            height: 16,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: Color(0xFF6C63FF),
+            ),
+          ),
+          SizedBox(width: 12),
+          Text(
+            'Loading laboratories...',
+            style: TextStyle(color: Colors.grey, fontSize: 16),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLaboratoryDropdown() {
+    if (laboratories.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF8F9FA),
+          border: Border.all(color: Colors.grey[200]!),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          children: [
+            Icon(Icons.science_outlined, color: Color(0xFF6C63FF)),
+            SizedBox(width: 12),
+            Text(
+              'No laboratories available',
+              style: TextStyle(color: Colors.grey, fontSize: 16),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return DropdownButtonFormField<Laboratory>(
+      value: selectedLaboratory,
+      decoration: FormWidgets.getInputDecoration(
+        hintText: 'Select laboratory',
+      ).copyWith(
+        prefixIcon: const Icon(
+          Icons.science_outlined,
+          color: Color(0xFF6C63FF),
+        ),
+      ),
+      items: laboratories.map((lab) {
+        return DropdownMenuItem<Laboratory>(
+          value: lab,
+          child: Text(lab.labName),
+        );
+      }).toList(),
+      onChanged: onLaboratoryChanged,
+      validator: (value) {
+        if (value == null) {
+          return 'Please select a laboratory';
+        }
+        return null;
+      },
+      isExpanded: true,
+      menuMaxHeight: 300,
     );
   }
 }

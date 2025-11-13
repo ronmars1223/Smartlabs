@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import '../form_page.dart';
 import 'notification_service.dart';
+import 'laboratory_service.dart';
 
 class FormService {
   Future<DateTime?> selectDate(
@@ -35,7 +36,7 @@ class FormService {
   Future<void> submitBorrowRequest({
     required BorrowFormPage widget,
     required String itemNo,
-    required String laboratory,
+    required Laboratory laboratory,
     required int quantity,
     required DateTime dateToBeUsed,
     required DateTime dateToReturn,
@@ -60,7 +61,9 @@ class FormService {
       'itemName': widget.itemName,
       'categoryName': widget.categoryName,
       'itemNo': itemNo,
-      'laboratory': laboratory,
+      'laboratory': laboratory.labName, // Display name for backward compatibility
+      'labId': laboratory.labId, // Lab code (e.g., "LAB001")
+      'labRecordId': laboratory.id, // Firebase record ID
       'quantity': quantity,
       'dateToBeUsed': dateToBeUsed.toIso8601String(),
       'dateToReturn': dateToReturn.toIso8601String(),
@@ -77,18 +80,11 @@ class FormService {
 
     borrowRequestData['requestId'] = requestId;
 
+    // Note: quantity_borrowed is now handled by web admin on approval
+    // We only create the request here, web admin will manage quantities
     await Future.wait([
       // Store request under /borrow_requests
       borrowRef.set(borrowRequestData),
-
-      // Update quantity_borrowed on item
-      FirebaseDatabase.instance
-          .ref()
-          .child('equipment_categories')
-          .child(widget.categoryId)
-          .child('equipments')
-          .child(widget.itemId)
-          .update({'quantity_borrowed': quantity}),
 
       // Send notification to adviser
       NotificationService.sendNotificationToUser(

@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:app/home/service/cart_service.dart';
 import 'package:app/home/service/teacher_service.dart';
+import 'package:app/home/service/laboratory_service.dart';
 import 'package:app/home/service/notification_service.dart';
 import 'package:intl/intl.dart';
 
@@ -17,10 +18,11 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
   final _formKey = GlobalKey<FormState>();
   final CartService _cartService = CartService();
   final TeacherService _teacherService = TeacherService();
+  final LaboratoryService _laboratoryService = LaboratoryService();
 
   DateTime? _dateToBeUsed;
   DateTime? _dateToReturn;
-  String _selectedLaboratory = 'Laboratory 1';
+  Laboratory? _selectedLaboratory;
   String _adviserName = '';
   String _adviserId = '';
   bool _isSubmitting = false;
@@ -29,6 +31,17 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
   void initState() {
     super.initState();
     _teacherService.loadTeachers();
+    _laboratoryService.loadLaboratories().then((_) {
+      // Set default laboratory to first available lab
+      if (_laboratoryService.laboratories.isNotEmpty &&
+          _selectedLaboratory == null) {
+        if (mounted) {
+          setState(() {
+            _selectedLaboratory = _laboratoryService.laboratories.first;
+          });
+        }
+      }
+    });
   }
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
@@ -71,22 +84,32 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
       return;
     }
 
+    if (_selectedLaboratory == null) {
+      _showSnackBar('Please select a laboratory', isError: true);
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
-      // Create a batch request ID
+      // Create a batch request ID (shared by all items in this batch)
       final batchId =
           FirebaseDatabase.instance.ref().child('batch_requests').push().key!;
+      
+      // Calculate batch size (total number of items in batch)
+      final batchSize = _cartService.items.length;
 
       final List<Future> requests = [];
 
       // Create individual requests for each cart item
+      // All items share the same batchId to group them together
       for (var item in _cartService.items) {
         final borrowRequestData = {
-          'batchId': batchId,
+          'batchId': batchId, // Same batchId for all items in this batch
+          'batchSize': batchSize, // Total number of items in this batch
           'userId': user.uid,
           'userEmail': user.email,
           'itemId': item.itemId,
@@ -94,7 +117,9 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
           'itemName': item.itemName,
           'categoryName': item.categoryName,
           'itemNo': 'LAB-${item.itemId.substring(0, 5).toUpperCase()}',
-          'laboratory': _selectedLaboratory,
+          'laboratory': _selectedLaboratory!.labName, // Display name for backward compatibility
+          'labId': _selectedLaboratory!.labId, // Lab code (e.g., "LAB001")
+          'labRecordId': _selectedLaboratory!.id, // Firebase record ID
           'quantity': item.quantity,
           'dateToBeUsed': _dateToBeUsed!.toIso8601String(),
           'dateToReturn': _dateToReturn!.toIso8601String(),
@@ -112,16 +137,8 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
 
         requests.add(borrowRef.set(borrowRequestData));
 
-        // Update quantity_borrowed on item
-        requests.add(
-          FirebaseDatabase.instance
-              .ref()
-              .child('equipment_categories')
-              .child(item.categoryId)
-              .child('equipments')
-              .child(item.itemId)
-              .update({'quantity_borrowed': item.quantity}),
-        );
+        // Note: quantity_borrowed is now handled by web admin on approval
+        // We only create the request here, web admin will manage quantities
       }
 
       // Send notification to adviser about the batch request
@@ -361,50 +378,76 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
   }
 
   Widget _buildLaboratorySection() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.shade200,
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Laboratory',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 12),
-          DropdownButtonFormField<String>(
-            value: _selectedLaboratory,
-            decoration: InputDecoration(
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(8),
+    return ListenableBuilder(
+      listenable: _laboratoryService,
+      builder: (context, child) {
+        return Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.shade200,
+                blurRadius: 8,
+                offset: const Offset(0, 2),
               ),
-              contentPadding: const EdgeInsets.symmetric(
-                horizontal: 16,
-                vertical: 12,
-              ),
-            ),
-            items:
-                ['Laboratory 1', 'Laboratory 2', 'Laboratory 3']
-                    .map(
-                      (lab) => DropdownMenuItem(value: lab, child: Text(lab)),
-                    )
-                    .toList(),
-            onChanged: (value) {
-              setState(() => _selectedLaboratory = value!);
-            },
+            ],
           ),
-        ],
-      ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Laboratory',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+              ),
+              const SizedBox(height: 12),
+              _laboratoryService.isLoading
+                  ? const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(16.0),
+                      child: CircularProgressIndicator(),
+                    ),
+                  )
+                  : _laboratoryService.laboratories.isEmpty
+                      ? const Text('No laboratories available')
+                      : DropdownButtonFormField<Laboratory>(
+                        value: _selectedLaboratory,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 12,
+                          ),
+                          prefixIcon: const Icon(
+                            Icons.science_outlined,
+                            color: Color(0xFF2AA39F),
+                          ),
+                        ),
+                        items: _laboratoryService.laboratories.map((lab) {
+                          return DropdownMenuItem<Laboratory>(
+                            value: lab,
+                            child: Text(lab.labName),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setState(() => _selectedLaboratory = value);
+                        },
+                        validator: (value) {
+                          if (value == null) {
+                            return 'Please select a laboratory';
+                          }
+                          return null;
+                        },
+                        isExpanded: true,
+                        menuMaxHeight: 300,
+                      ),
+            ],
+          ),
+        );
+      },
     );
   }
 

@@ -146,12 +146,38 @@ class _CategoryItemsPageState extends State<CategoryItemsPage> {
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              Text(
-                                'Qty: ${item.quantity}',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  fontWeight: FontWeight.w500,
-                                ),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    'Total: ${item.quantity}',
+                                    style: const TextStyle(
+                                      fontSize: 14,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  if (item.quantityBorrowed != null &&
+                                      item.quantityBorrowed! > 0)
+                                    Text(
+                                      'Available: ${item.availableQuantity}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: item.availableQuantity > 0
+                                            ? Colors.green.shade700
+                                            : Colors.red.shade700,
+                                      ),
+                                    )
+                                  else
+                                    Text(
+                                      'Available: ${item.quantity}',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                        color: Colors.green.shade700,
+                                      ),
+                                    ),
+                                ],
                               ),
                             ],
                           ),

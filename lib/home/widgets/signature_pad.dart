@@ -1,6 +1,9 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 
+// Note: Signature is stored as base64-encoded JSON string
+// Format: {"points": [{"x": number, "y": number, "isNewStroke": boolean}], "strokeWidth": number}
+
 class SignaturePad extends StatefulWidget {
   final Function(String?) onSignatureComplete;
 
@@ -84,7 +87,11 @@ class _SignaturePadState extends State<SignaturePad> {
               .toList(),
       'strokeWidth': _strokeWidth,
     };
-    return jsonEncode(signatureData);
+    // Encode as base64 JSON string as per documented format
+    // Format: {"points": [{"x": number, "y": number, "isNewStroke": boolean}], "strokeWidth": number}
+    final jsonString = jsonEncode(signatureData);
+    final bytes = utf8.encode(jsonString);
+    return base64.encode(bytes);
   }
 
   @override

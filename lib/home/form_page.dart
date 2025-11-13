@@ -1,6 +1,7 @@
 // lib/home/form_page.dart
 import 'package:app/home/service/form_service.dart';
 import 'package:app/home/service/teacher_service.dart';
+import 'package:app/home/service/laboratory_service.dart';
 import 'package:flutter/material.dart';
 
 import 'widgets/form_sections.dart';
@@ -34,7 +35,7 @@ class _BorrowFormPageState extends State<BorrowFormPage>
 
   DateTime? _dateToBeUsed;
   DateTime? _dateToReturn;
-  String _selectedLaboratory = 'Laboratory 1';
+  Laboratory? _selectedLaboratory;
   bool _isSubmitting = false;
 
   late AnimationController _animationController;
@@ -42,6 +43,7 @@ class _BorrowFormPageState extends State<BorrowFormPage>
   late Animation<Offset> _slideAnimation;
 
   final TeacherService _teacherService = TeacherService();
+  final LaboratoryService _laboratoryService = LaboratoryService();
   final FormService _formService = FormService();
 
   @override
@@ -50,6 +52,17 @@ class _BorrowFormPageState extends State<BorrowFormPage>
     _initializeAnimations();
     _initializeForm();
     _teacherService.loadTeachers();
+    _laboratoryService.loadLaboratories().then((_) {
+      // Set default laboratory to first available lab
+      if (_laboratoryService.laboratories.isNotEmpty &&
+          _selectedLaboratory == null) {
+        if (mounted) {
+          setState(() {
+            _selectedLaboratory = _laboratoryService.laboratories.first;
+          });
+        }
+      }
+    });
   }
 
   void _initializeAnimations() {
@@ -122,6 +135,15 @@ class _BorrowFormPageState extends State<BorrowFormPage>
       return;
     }
 
+    if (_selectedLaboratory == null) {
+      FormWidgets.showSnackBar(
+        context,
+        'Please select a laboratory',
+        isError: true,
+      );
+      return;
+    }
+
     // Show signature dialog first
     final String? signature = await _showSignatureDialog();
 
@@ -138,7 +160,7 @@ class _BorrowFormPageState extends State<BorrowFormPage>
       await _formService.submitBorrowRequest(
         widget: widget,
         itemNo: _itemNoController.text,
-        laboratory: _selectedLaboratory,
+        laboratory: _selectedLaboratory!,
         quantity: int.parse(_quantityController.text),
         dateToBeUsed: _dateToBeUsed!,
         dateToReturn: _dateToReturn!,
@@ -206,15 +228,22 @@ class _BorrowFormPageState extends State<BorrowFormPage>
                   ),
 
                   // Request Details Section
-                  RequestDetailsSection(
-                    selectedLaboratory: _selectedLaboratory,
-                    onLaboratoryChanged: (value) {
-                      setState(() {
-                        _selectedLaboratory = value!;
-                      });
+                  ListenableBuilder(
+                    listenable: _laboratoryService,
+                    builder: (context, child) {
+                      return RequestDetailsSection(
+                        laboratories: _laboratoryService.laboratories,
+                        isLoading: _laboratoryService.isLoading,
+                        selectedLaboratory: _selectedLaboratory,
+                        onLaboratoryChanged: (lab) {
+                          setState(() {
+                            _selectedLaboratory = lab;
+                          });
+                        },
+                        quantityController: _quantityController,
+                        itemNoController: _itemNoController,
+                      );
                     },
-                    quantityController: _quantityController,
-                    itemNoController: _itemNoController,
                   ),
 
                   // Schedule Section

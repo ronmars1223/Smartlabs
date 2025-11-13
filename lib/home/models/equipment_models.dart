@@ -92,6 +92,7 @@ class EquipmentItem {
   final String categoryId;
   final String? description;
   final String quantity;
+  final int? quantityBorrowed; // Number of items currently borrowed
   final String? createdAt;
   final String? updatedAt;
   final String? model;
@@ -109,6 +110,7 @@ class EquipmentItem {
     required this.categoryId,
     this.description,
     this.quantity = '1',
+    this.quantityBorrowed,
     this.createdAt,
     this.updatedAt,
     this.model,
@@ -127,6 +129,7 @@ class EquipmentItem {
       'categoryId': categoryId,
       'description': description ?? '',
       'quantity': quantity,
+      'quantity_borrowed': quantityBorrowed ?? 0,
       'model': model ?? '',
       'serialNumber': serialNumber ?? '',
       'condition': condition ?? '',
@@ -140,6 +143,16 @@ class EquipmentItem {
   }
 
   factory EquipmentItem.fromMap(String id, Map<dynamic, dynamic> data) {
+    // Parse quantity_borrowed (can be int, string, or null)
+    int? quantityBorrowed;
+    if (data['quantity_borrowed'] != null) {
+      if (data['quantity_borrowed'] is int) {
+        quantityBorrowed = data['quantity_borrowed'] as int;
+      } else if (data['quantity_borrowed'] is String) {
+        quantityBorrowed = int.tryParse(data['quantity_borrowed']);
+      }
+    }
+
     return EquipmentItem(
       id: id,
       name: data['name'] ?? 'Unknown Item',
@@ -147,6 +160,7 @@ class EquipmentItem {
       categoryId: data['categoryId'] ?? '',
       description: data['description'],
       quantity: data['quantity']?.toString() ?? '1',
+      quantityBorrowed: quantityBorrowed,
       model: data['model'],
       serialNumber: data['serialNumber'],
       condition: data['condition'],
@@ -160,6 +174,13 @@ class EquipmentItem {
   }
 
   bool get isAvailable => status.toLowerCase() == 'available';
+
+  // Get available quantity (total quantity - quantity borrowed)
+  int get availableQuantity {
+    final totalQty = int.tryParse(quantity) ?? 0;
+    final borrowed = quantityBorrowed ?? 0;
+    return (totalQty - borrowed).clamp(0, totalQty);
+  }
 
   Color get statusColor {
     switch (status.toLowerCase()) {
