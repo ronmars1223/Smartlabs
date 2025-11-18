@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:app/home/service/association_mining_service.dart';
+import 'package:app/home/service/dummy_data_service.dart';
 
 class AnalyticsPage extends StatefulWidget {
   const AnalyticsPage({super.key});
@@ -11,6 +12,7 @@ class AnalyticsPage extends StatefulWidget {
 
 class _AnalyticsPageState extends State<AnalyticsPage> {
   bool _isLoading = true;
+  bool _isInsertingDummyData = false;
   List<Map<String, dynamic>> _popularEquipment = [];
   List<Map<String, dynamic>> _recentActivity = [];
   List<AssociationRule> _associationRules = [];
@@ -178,6 +180,144 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     }
   }
 
+  Future<void> _insertDummyData() async {
+    // Confirm before inserting
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Insert Test Data'),
+        content: const Text(
+          'This will create dummy borrow requests to test association rules. '
+          'It will create 50 users with 3 requests each (150 total requests).\n\n'
+          'Continue?',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF2AA39F),
+            ),
+            child: const Text('Insert'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    setState(() {
+      _isInsertingDummyData = true;
+    });
+
+    try {
+      await DummyDataService.insertDummyBorrowRequests(
+        numUsers: 50,
+        requestsPerUser: 3,
+      );
+
+      _showSnackBar(
+        'Successfully inserted dummy borrow requests! Refreshing analytics...',
+        isError: false,
+      );
+
+      // Reload analytics after a short delay
+      await Future.delayed(const Duration(seconds: 1));
+      await _loadAnalytics();
+    } catch (e) {
+      _showSnackBar('Error inserting dummy data: $e', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isInsertingDummyData = false;
+        });
+      }
+    }
+  }
+
+  Widget _buildDummyDataSection() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.shade200,
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.science, color: Color(0xFF2AA39F), size: 24),
+              SizedBox(width: 12),
+              Text(
+                'Test Data Generator',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF2C3E50),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Generate dummy borrow request data to test association rule mining. '
+            'This creates realistic borrowing patterns with multiple equipment items borrowed together.',
+            style: TextStyle(
+              fontSize: 14,
+              color: Colors.grey,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed:
+                      _isInsertingDummyData ? null : _insertDummyData,
+                  icon: _isInsertingDummyData
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            valueColor:
+                                AlwaysStoppedAnimation<Color>(Colors.white),
+                          ),
+                        )
+                      : const Icon(Icons.auto_fix_high),
+                  label: Text(
+                    _isInsertingDummyData
+                        ? 'Inserting...'
+                        : 'Insert Test Data',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2AA39F),
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   void _showSnackBar(String message, {required bool isError}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -234,9 +374,34 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                     _buildAssociationRules(),
                     const SizedBox(height: 24),
                     _buildRecentActivity(),
+                    const SizedBox(height: 24),
+                    _buildDummyDataSection(),
+                    const SizedBox(height: 24),
                   ],
                 ),
               ),
+      floatingActionButton: _isLoading
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: _isInsertingDummyData ? null : _insertDummyData,
+              backgroundColor: const Color(0xFF2AA39F),
+              icon: _isInsertingDummyData
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : const Icon(Icons.auto_fix_high, color: Colors.white),
+              label: Text(
+                _isInsertingDummyData
+                    ? 'Inserting...'
+                    : 'Insert Test Data',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
     );
   }
 

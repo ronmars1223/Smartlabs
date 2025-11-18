@@ -10,6 +10,9 @@ class EquipmentCategory {
   final String? createdAt;
   final int totalCount; // Total number of equipment items
   final String? updatedAt;
+  final String? labId; // Lab code (e.g., "LAB001")
+  final String? labRecordId; // Firebase record ID of the laboratory
+  final String? labName; // Laboratory display name
 
   EquipmentCategory({
     required this.id,
@@ -20,6 +23,9 @@ class EquipmentCategory {
     this.createdAt,
     this.totalCount = 0,
     this.updatedAt,
+    this.labId,
+    this.labRecordId,
+    this.labName,
   });
 
   static IconData getIconFromString(String iconName) {
@@ -81,6 +87,9 @@ class EquipmentCategory {
       color: categoryColor,
       createdAt: data['createdAt'],
       updatedAt: data['updatedAt'],
+      labId: data['labId'],
+      labRecordId: data['labRecordId'],
+      labName: data['labName'],
     );
   }
 }

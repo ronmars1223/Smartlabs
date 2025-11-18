@@ -5,6 +5,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:app/home/models/equipment_models.dart';
 import 'package:app/home/service/equipment_service.dart';
 import 'package:app/home/service/cart_service.dart';
+import 'package:app/home/service/laboratory_service.dart';
 import 'package:app/home/cart_page.dart';
 import 'package:app/home/category_items_page.dart';
 
@@ -19,8 +20,11 @@ class _EquipmentPageState extends State<EquipmentPage> {
   bool _isLoading = true;
   String _userRole = '';
   List<EquipmentCategory> _equipmentCategories = [];
+  Laboratory? _selectedLaboratory;
+  List<EquipmentCategory> _filteredCategories = [];
   final TextEditingController _searchController = TextEditingController();
   final CartService _cartService = CartService();
+  final LaboratoryService _laboratoryService = LaboratoryService();
 
   @override
   void initState() {
@@ -29,6 +33,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
     FirebaseDatabase.instance.databaseURL =
         'https://smartlab-e2107-default-rtdb.asia-southeast1.firebasedatabase.app';
     _loadUserRole();
+    _loadLaboratories();
     _loadEquipmentData();
   }
 
@@ -61,6 +66,22 @@ class _EquipmentPageState extends State<EquipmentPage> {
     }
   }
 
+  Future<void> _loadLaboratories() async {
+    try {
+      await _laboratoryService.loadLaboratories();
+      // Auto-select first lab if available and none selected
+      if (_selectedLaboratory == null &&
+          _laboratoryService.laboratories.isNotEmpty) {
+        setState(() {
+          _selectedLaboratory = _laboratoryService.laboratories.first;
+        });
+        _filterCategoriesByLab();
+      }
+    } catch (e) {
+      debugPrint('Error loading laboratories: $e');
+    }
+  }
+
   Future<void> _loadEquipmentData() async {
     setState(() {
       _isLoading = true;
@@ -68,6 +89,7 @@ class _EquipmentPageState extends State<EquipmentPage> {
 
     try {
       _equipmentCategories = await EquipmentService.getCategories();
+      _filterCategoriesByLab();
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -78,6 +100,27 @@ class _EquipmentPageState extends State<EquipmentPage> {
 
     setState(() {
       _isLoading = false;
+    });
+  }
+
+  void _filterCategoriesByLab() {
+    if (_selectedLaboratory == null) {
+      _filteredCategories = _equipmentCategories;
+      return;
+    }
+
+    // Filter categories by labId or labRecordId
+    _filteredCategories = _equipmentCategories.where((category) {
+      return category.labId == _selectedLaboratory!.labId ||
+          category.labRecordId == _selectedLaboratory!.id ||
+          category.labId == _selectedLaboratory!.id;
+    }).toList();
+  }
+
+  void _onLaboratorySelected(Laboratory? lab) {
+    setState(() {
+      _selectedLaboratory = lab;
+      _filterCategoriesByLab();
     });
   }
 
@@ -147,53 +190,99 @@ class _EquipmentPageState extends State<EquipmentPage> {
   }
 
   Widget _buildHeader() {
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Laboratory Equipment',
-                style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+        Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Laboratory Equipment',
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Browse and borrow equipment for your experiments',
+                    style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              Text(
-                'Browse and borrow equipment for your experiments',
-                style: TextStyle(fontSize: 14, color: Colors.grey.shade600),
-              ),
-            ],
-          ),
-        ),
-        IconButton(
-          onPressed: _recalculateCounts,
-          icon: const Icon(Icons.refresh, size: 28),
-          color: const Color(0xFF2AA39F),
-          tooltip: 'Fix counts',
-        ),
-        ListenableBuilder(
-          listenable: _cartService,
-          builder: (context, child) {
-            return IconButton(
-              onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CartPage()),
-                );
-              },
-              icon: Badge(
-                label:
-                    _cartService.itemCount > 0
+            ),
+            IconButton(
+              onPressed: _recalculateCounts,
+              icon: const Icon(Icons.refresh, size: 28),
+              color: const Color(0xFF2AA39F),
+              tooltip: 'Fix counts',
+            ),
+            ListenableBuilder(
+              listenable: _cartService,
+              builder: (context, child) {
+                return IconButton(
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const CartPage(),
+                      ),
+                    );
+                  },
+                  icon: Badge(
+                    label: _cartService.itemCount > 0
                         ? Text('${_cartService.itemCount}')
                         : null,
-                isLabelVisible: _cartService.itemCount > 0,
-                child: const Icon(Icons.shopping_cart_outlined, size: 28),
-              ),
-              color: const Color(0xFF2AA39F),
-              tooltip: 'View Cart',
-            );
-          },
+                    isLabelVisible: _cartService.itemCount > 0,
+                    child: const Icon(Icons.shopping_cart_outlined, size: 28),
+                  ),
+                  color: const Color(0xFF2AA39F),
+                  tooltip: 'View Cart',
+                );
+              },
+            ),
+          ],
         ),
+        const SizedBox(height: 16),
+        // Laboratory selector
+        if (_laboratoryService.laboratories.isNotEmpty) ...[
+          const Text(
+            'Select Laboratory',
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: Color(0xFF2C3E50),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<Laboratory>(
+                value: _selectedLaboratory,
+                isExpanded: true,
+                hint: const Text('All Laboratories'),
+                items: [
+                  const DropdownMenuItem<Laboratory>(
+                    value: null,
+                    child: Text('All Laboratories'),
+                  ),
+                  ..._laboratoryService.laboratories.map((lab) {
+                    return DropdownMenuItem<Laboratory>(
+                      value: lab,
+                      child: Text(lab.labName),
+                    );
+                  }),
+                ],
+                onChanged: _onLaboratorySelected,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -236,12 +325,20 @@ class _EquipmentPageState extends State<EquipmentPage> {
   }
 
   Widget _buildTeacherView() {
+    if (_selectedLaboratory == null) {
+      return _buildLaboratorySelectionView();
+    }
+
+    if (_filteredCategories.isEmpty) {
+      return _buildEmptyLabView();
+    }
+
     return RefreshIndicator(
       onRefresh: _loadEquipmentData,
       child: ListView.builder(
-        itemCount: _equipmentCategories.length,
+        itemCount: _filteredCategories.length,
         itemBuilder: (context, index) {
-          final category = _equipmentCategories[index];
+          final category = _filteredCategories[index];
           return _buildEquipmentCategory(category);
         },
       ),
@@ -249,15 +346,76 @@ class _EquipmentPageState extends State<EquipmentPage> {
   }
 
   Widget _buildStudentView() {
+    if (_selectedLaboratory == null) {
+      return _buildLaboratorySelectionView();
+    }
+
+    if (_filteredCategories.isEmpty) {
+      return _buildEmptyLabView();
+    }
+
     return RefreshIndicator(
       onRefresh: _loadEquipmentData,
       child: ListView.builder(
         padding: const EdgeInsets.all(8),
-        itemCount: _equipmentCategories.length,
+        itemCount: _filteredCategories.length,
         itemBuilder: (context, index) {
-          final category = _equipmentCategories[index];
+          final category = _filteredCategories[index];
           return _buildEquipmentCategory(category);
         },
+      ),
+    );
+  }
+
+  Widget _buildLaboratorySelectionView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.science_outlined,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
+          const Text(
+            'Select a Laboratory',
+            style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Please select a laboratory to view available equipment',
+            style: TextStyle(color: Colors.grey.shade600),
+            textAlign: TextAlign.center,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyLabView() {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.inventory_2_outlined,
+            size: 64,
+            color: Colors.grey.shade400,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'No Equipment in ${_selectedLaboratory?.labName ?? "this lab"}',
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'This laboratory has no equipment categories yet',
+            style: TextStyle(color: Colors.grey.shade600),
+            textAlign: TextAlign.center,
+          ),
+        ],
       ),
     );
   }
@@ -294,6 +452,17 @@ class _EquipmentPageState extends State<EquipmentPage> {
                           fontSize: 16,
                         ),
                       ),
+                      if (category.labName != null) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          category.labName!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey.shade600,
+                            fontStyle: FontStyle.italic,
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 8),
                       Row(
                         children: [

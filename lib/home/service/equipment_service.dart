@@ -40,6 +40,9 @@ class EquipmentService {
             color: category.color,
             createdAt: category.createdAt,
             updatedAt: category.updatedAt,
+            labId: category.labId,
+            labRecordId: category.labRecordId,
+            labName: category.labName,
           );
 
           categories.add(updatedCategory);
@@ -328,6 +331,37 @@ class EquipmentService {
 
     return allItems.where((item) {
       return item.status.toLowerCase() == status.toLowerCase();
+    }).toList();
+  }
+
+  // Get categories filtered by labId
+  static Future<List<EquipmentCategory>> getCategoriesByLabId(
+    String labId,
+  ) async {
+    final allCategories = await getCategories();
+
+    return allCategories.where((category) {
+      return category.labId == labId || category.labRecordId == labId;
+    }).toList();
+  }
+
+  // Get items filtered by labId
+  static Future<List<EquipmentItem>> getItemsByLabId(String labId) async {
+    final allItems = await getAllItems();
+
+    return allItems.where((item) {
+      return item.labId == labId;
+    }).toList();
+  }
+
+  // Get categories for a specific lab (by labRecordId)
+  static Future<List<EquipmentCategory>> getCategoriesByLabRecordId(
+    String labRecordId,
+  ) async {
+    final allCategories = await getCategories();
+
+    return allCategories.where((category) {
+      return category.labRecordId == labRecordId;
     }).toList();
   }
 

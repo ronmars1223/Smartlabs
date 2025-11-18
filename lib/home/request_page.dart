@@ -54,9 +54,42 @@ class _RequestPageState extends State<RequestPage>
 
       if (snapshot.exists) {
         final data = snapshot.value as Map<dynamic, dynamic>;
+        
+        // Get unique user IDs to fetch student names
+        final Set<String> userIds = {};
+        data.forEach((key, value) {
+          final request = value as Map<dynamic, dynamic>;
+          final userId = request['userId'];
+          if (userId != null) {
+            userIds.add(userId.toString());
+          }
+        });
+
+        // Fetch student names
+        final Map<String, String> studentNames = {};
+        if (userIds.isNotEmpty) {
+          final usersSnapshot =
+              await FirebaseDatabase.instance.ref().child('users').get();
+          
+          if (usersSnapshot.exists) {
+            final usersData = usersSnapshot.value as Map<dynamic, dynamic>;
+            for (final userId in userIds) {
+              if (usersData.containsKey(userId)) {
+                final userData = usersData[userId] as Map<dynamic, dynamic>;
+                studentNames[userId] = userData['name'] ?? 'Unknown Student';
+              }
+            }
+          }
+        }
+
+        // Build requests list with student names
         data.forEach((key, value) {
           final request = Map<String, dynamic>.from(value);
           request['id'] = key;
+          final userId = request['userId'] as String?;
+          if (userId != null) {
+            request['userName'] = studentNames[userId] ?? 'Unknown Student';
+          }
           adviserRequests.add(request);
         });
 
@@ -377,7 +410,7 @@ class _RequestPageState extends State<RequestPage>
             : 'Not specified';
 
     final status = request['status'] ?? 'pending';
-    final studentEmail = request['userEmail'] ?? 'Unknown Student';
+    final studentName = request['userName'] ?? request['userEmail'] ?? 'Unknown Student';
     final itemName = request['itemName'] ?? 'Unknown Item';
     final categoryName = request['categoryName'] ?? 'Unknown Category';
     final laboratory = request['laboratory'] ?? 'Not specified';
@@ -463,7 +496,7 @@ class _RequestPageState extends State<RequestPage>
             const SizedBox(height: 12),
 
             // Info
-            _infoText('Student', studentEmail),
+            _infoText('Student', studentName),
             _infoText('Item', itemName),
             _infoText('Item No.', itemNo),
             _infoText('Category', categoryName),
