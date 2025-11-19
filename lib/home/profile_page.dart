@@ -230,67 +230,213 @@ class _ProfilePageState extends State<ProfilePage> {
 
   void _showEditProfileDialog() {
     final nameController = TextEditingController(text: _userName);
+    String selectedCourse = _userCourse;
+    String selectedYearLevel = _userYearLevel;
+    String selectedSection = _userSection;
 
     showDialog(
       context: context,
-      builder:
-          (context) => AlertDialog(
-            title: const Text('Edit Profile'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    border: OutlineInputBorder(),
-                  ),
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            return AlertDialog(
+              title: const Text('Edit Profile'),
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: nameController,
+                      decoration: const InputDecoration(
+                        labelText: 'Full Name',
+                        border: OutlineInputBorder(),
+                        prefixIcon: Icon(Icons.person),
+                      ),
+                    ),
+                    if (_userRole == 'student') ...[
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: selectedCourse.isEmpty ? null : selectedCourse,
+                        decoration: const InputDecoration(
+                          labelText: 'Course',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.school),
+                        ),
+                        items: [
+                          'BSIT',
+                          'BSCS',
+                          'BSCpE',
+                          'BSCE',
+                          'BSEE',
+                          'BSME',
+                          'ACT',
+                        ].map((course) {
+                          return DropdownMenuItem(
+                            value: course,
+                            child: Text(course),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedCourse = value ?? '';
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value: selectedYearLevel.isEmpty
+                            ? null
+                            : selectedYearLevel,
+                        decoration: const InputDecoration(
+                          labelText: 'Year Level',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.calendar_today),
+                        ),
+                        items: ['1', '2', '3', '4'].map((year) {
+                          return DropdownMenuItem(
+                            value: year,
+                            child: Text('$year${_getYearSuffix(year)} Year'),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedYearLevel = value ?? '';
+                          });
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      DropdownButtonFormField<String>(
+                        value:
+                            selectedSection.isEmpty ? null : selectedSection,
+                        decoration: const InputDecoration(
+                          labelText: 'Section',
+                          border: OutlineInputBorder(),
+                          prefixIcon: Icon(Icons.group),
+                        ),
+                        items: ['A', 'B', 'C', 'D', 'E'].map((section) {
+                          return DropdownMenuItem(
+                            value: section,
+                            child: Text('Section $section'),
+                          );
+                        }).toList(),
+                        onChanged: (value) {
+                          setDialogState(() {
+                            selectedSection = value ?? '';
+                          });
+                        },
+                      ),
+                    ],
+                  ],
                 ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancel'),
               ),
-              ElevatedButton(
-                onPressed: () async {
-                  final navigator = Navigator.of(context);
-                  final scaffoldMessenger = ScaffoldMessenger.of(context);
-                  navigator.pop();
-                  final user = FirebaseAuth.instance.currentUser;
-                  if (user != null && nameController.text.trim().isNotEmpty) {
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text('Cancel'),
+                ),
+                ElevatedButton(
+                  onPressed: () async {
+                    final navigator = Navigator.of(context);
+                    final scaffoldMessenger = ScaffoldMessenger.of(context);
+                    navigator.pop();
+
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user == null) return;
+
+                    if (nameController.text.trim().isEmpty) {
+                      scaffoldMessenger.showSnackBar(
+                        const SnackBar(
+                          content: Text('Please enter your name'),
+                        ),
+                      );
+                      return;
+                    }
+
+                    // Validate student fields if student
+                    if (_userRole == 'student') {
+                      if (selectedCourse.isEmpty ||
+                          selectedYearLevel.isEmpty ||
+                          selectedSection.isEmpty) {
+                        scaffoldMessenger.showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Please fill in all student information',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                    }
+
                     try {
+                      final updateData = {
+                        'name': nameController.text.trim(),
+                      };
+
+                      // Add student-specific fields
+                      if (_userRole == 'student') {
+                        updateData['course'] = selectedCourse;
+                        updateData['yearLevel'] = selectedYearLevel;
+                        updateData['section'] = selectedSection;
+                      }
+
                       await FirebaseDatabase.instance
                           .ref()
                           .child('users')
                           .child(user.uid)
-                          .update({'name': nameController.text.trim()});
+                          .update(updateData);
+
                       if (mounted) {
                         setState(() {
                           _userName = nameController.text.trim();
+                          if (_userRole == 'student') {
+                            _userCourse = selectedCourse;
+                            _userYearLevel = selectedYearLevel;
+                            _userSection = selectedSection;
+                          }
                         });
                         scaffoldMessenger.showSnackBar(
-                          const SnackBar(content: Text('Profile updated')),
+                          const SnackBar(
+                            content: Text('Profile updated successfully'),
+                          ),
                         );
                       }
                     } catch (e) {
                       if (mounted) {
                         scaffoldMessenger.showSnackBar(
-                          SnackBar(content: Text('Error updating profile: $e')),
+                          SnackBar(
+                            content: Text('Error updating profile: $e'),
+                          ),
                         );
                       }
                     }
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF2AA39F),
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF2AA39F),
+                  ),
+                  child: const Text('Save'),
                 ),
-                child: const Text('Save'),
-              ),
-            ],
-          ),
+              ],
+            );
+          },
+        );
+      },
     );
+  }
+
+  String _getYearSuffix(String year) {
+    switch (year) {
+      case '1':
+        return 'st';
+      case '2':
+        return 'nd';
+      case '3':
+        return 'rd';
+      case '4':
+        return 'th';
+      default:
+        return '';
+    }
   }
 
   void _showChangePasswordDialog() {

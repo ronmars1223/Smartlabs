@@ -1,6 +1,7 @@
 import 'package:app/home/bottomnavbar.dart';
 import 'package:app/home/notification_modal.dart';
 import 'package:app/home/service/notification_service.dart';
+import 'package:app/home/service/due_date_reminder_service.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
@@ -44,6 +45,12 @@ class _HomePageState extends State<HomePage> {
 
     _loadUserData();
     _loadNotificationCount();
+    _checkDueDateReminders();
+  }
+
+  Future<void> _checkDueDateReminders() async {
+    // Check for due date reminders when app starts
+    await DueDateReminderService.checkAndSendReminders();
   }
 
   // Initialize pages after user role is loaded

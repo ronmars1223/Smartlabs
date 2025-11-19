@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
+import 'service/due_date_reminder_service.dart';
 
 class BorrowingHistoryPage extends StatefulWidget {
   const BorrowingHistoryPage({super.key});
@@ -24,6 +25,12 @@ class _BorrowingHistoryPageState extends State<BorrowingHistoryPage>
     _tabController = TabController(length: 3, vsync: this);
     _loadBorrowingHistory();
     _setupRealtimeListener();
+    _checkDueDateReminders();
+  }
+
+  Future<void> _checkDueDateReminders() async {
+    // Check for due date reminders when viewing borrowing history
+    await DueDateReminderService.checkAndSendReminders();
   }
 
   void _setupRealtimeListener() {
@@ -586,6 +593,12 @@ class _BorrowingHistoryPageState extends State<BorrowingHistoryPage>
             const Divider(color: Color(0xFFEAEAEA)),
             const SizedBox(height: 12),
 
+            // Due Date Warning (only for active borrows)
+            if (showReturnButton && (status == 'approved' || status == 'released')) ...[
+              _buildDueDateWarning(request['dateToReturn']),
+              const SizedBox(height: 12),
+            ],
+
             // Info
             _infoText('Item', itemName),
             _infoText('Item No.', itemNo),
@@ -618,6 +631,68 @@ class _BorrowingHistoryPageState extends State<BorrowingHistoryPage>
             ],
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildDueDateWarning(String? dateToReturn) {
+    if (dateToReturn == null) return const SizedBox.shrink();
+
+    final dueDateStatus = DueDateReminderService.getDueDateStatus(dateToReturn);
+    final daysUntilDue = DueDateReminderService.getDaysUntilDue(dateToReturn);
+
+    if (dueDateStatus == null) return const SizedBox.shrink();
+
+    Color warningColor;
+    IconData warningIcon;
+    String warningText;
+
+    switch (dueDateStatus) {
+      case 'overdue':
+        warningColor = const Color(0xFFE74C3C);
+        warningIcon = Icons.warning;
+        warningText = daysUntilDue != null
+            ? 'OVERDUE: ${-daysUntilDue} day${-daysUntilDue == 1 ? '' : 's'} overdue'
+            : 'OVERDUE: Please return immediately';
+        break;
+      case 'due_today':
+        warningColor = const Color(0xFFF39C12);
+        warningIcon = Icons.schedule;
+        warningText = 'Due today - Please return today';
+        break;
+      case 'due_soon':
+        warningColor = const Color(0xFFF39C12);
+        warningIcon = Icons.access_time;
+        warningText = daysUntilDue != null
+            ? 'Due in $daysUntilDue day${daysUntilDue == 1 ? '' : 's'}'
+            : 'Due soon';
+        break;
+      default:
+        return const SizedBox.shrink();
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: warningColor.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: warningColor.withValues(alpha: 0.3), width: 1),
+      ),
+      child: Row(
+        children: [
+          Icon(warningIcon, color: warningColor, size: 20),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              warningText,
+              style: TextStyle(
+                color: warningColor,
+                fontWeight: FontWeight.w600,
+                fontSize: 13,
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }

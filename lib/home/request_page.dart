@@ -124,6 +124,21 @@ class _RequestPageState extends State<RequestPage>
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
+      // Prevent self-approval: Check if the user is trying to approve their own request
+      final requestUserId = request['userId'] as String?;
+
+      // Prevent approval if user is the requester (cannot approve own request)
+      if (requestUserId == user.uid) {
+        if (status == 'approved') {
+          _showSnackBar(
+            'You cannot approve your own borrow request. Please contact another instructor to approve it.',
+            isError: true,
+          );
+          return;
+        }
+        // Allow rejection of own request (in case of cancellation)
+      }
+
       final updateData = {
         'status': status,
         'processedAt': DateTime.now().toIso8601String(),
@@ -643,51 +658,111 @@ class _RequestPageState extends State<RequestPage>
             _infoText('Requested At', requestDate),
 
             if (showActions) ...[
-              const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed:
-                          () => _updateRequestStatus(
-                            request['id'],
-                            'rejected',
-                            request,
+              // Check if this is the user's own request
+              Builder(
+                builder: (context) {
+                  final user = FirebaseAuth.instance.currentUser;
+                  final requestUserId = request['userId'] as String?;
+                  final requestAdviserId = request['adviserId'] as String?;
+                  final isOwnRequest =
+                      user != null &&
+                      (requestUserId == user.uid ||
+                          requestAdviserId == user.uid);
+
+                  if (isOwnRequest) {
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 20),
+                      child: Container(
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade50,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: Colors.orange.shade200,
+                            width: 1,
                           ),
-                      icon: const Icon(Icons.close, size: 18),
-                      label: const Text('Reject'),
-                      style: OutlinedButton.styleFrom(
-                        foregroundColor: const Color(0xFFE74C3C),
-                        side: const BorderSide(color: Color(0xFFE74C3C)),
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          children: [
+                            Icon(
+                              Icons.info_outline,
+                              color: Colors.orange.shade700,
+                              size: 20,
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                'This is your own request. Please contact another instructor to approve it.',
+                                style: TextStyle(
+                                  color: Colors.orange.shade700,
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: ElevatedButton.icon(
-                      onPressed:
-                          () => _updateRequestStatus(
-                            request['id'],
-                            'approved',
-                            request,
+                    );
+                  }
+
+                  return Column(
+                    children: [
+                      const SizedBox(height: 20),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed:
+                                  () => _updateRequestStatus(
+                                    request['id'],
+                                    'rejected',
+                                    request,
+                                  ),
+                              icon: const Icon(Icons.close, size: 18),
+                              label: const Text('Reject'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: const Color(0xFFE74C3C),
+                                side: const BorderSide(
+                                  color: Color(0xFFE74C3C),
+                                ),
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
                           ),
-                      icon: const Icon(Icons.check, size: 18),
-                      label: const Text('Approve'),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF27AE60),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10),
-                        ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: ElevatedButton.icon(
+                              onPressed:
+                                  () => _updateRequestStatus(
+                                    request['id'],
+                                    'approved',
+                                    request,
+                                  ),
+                              icon: const Icon(Icons.check, size: 18),
+                              label: const Text('Approve'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: const Color(0xFF27AE60),
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 12,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
-                    ),
-                  ),
-                ],
+                    ],
+                  );
+                },
               ),
             ],
           ],
