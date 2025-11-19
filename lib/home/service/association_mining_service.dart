@@ -42,7 +42,7 @@ class AssociationMiningService {
     double minLift = 1.0, // Lift > 1 indicates positive correlation
   }) async {
     try {
-      // Step 1: Get all approved borrow requests grouped by user
+      // Step 1: Get all approved and returned borrow requests grouped by user
       final userBorrowings = await _getUserBorrowingPatterns();
 
       if (userBorrowings.isEmpty) {
@@ -86,10 +86,10 @@ class AssociationMiningService {
         final itemName = requestData['itemName'] as String?;
         final status = requestData['status'] as String?;
 
-        // Only consider approved requests
+        // Consider approved and returned requests (returned indicates completed borrowing)
         if (userId != null &&
             itemName != null &&
-            status == 'approved' &&
+            (status == 'approved' || status == 'returned') &&
             itemName != 'Unknown') {
           userBorrowings.putIfAbsent(userId, () => <String>{});
           userBorrowings[userId]!.add(itemName);

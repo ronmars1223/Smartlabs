@@ -5,6 +5,7 @@ import 'package:app/home/service/cart_service.dart';
 import 'package:app/home/service/teacher_service.dart';
 import 'package:app/home/service/laboratory_service.dart';
 import 'package:app/home/service/notification_service.dart';
+import 'package:app/home/widgets/signature_pad.dart';
 import 'package:intl/intl.dart';
 
 class BatchBorrowFormPage extends StatefulWidget {
@@ -89,6 +90,14 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
       return;
     }
 
+    // Show signature dialog first
+    final String? signature = await _showSignatureDialog();
+
+    if (signature == null) {
+      // User cancelled or cleared the signature
+      return;
+    }
+
     setState(() => _isSubmitting = true);
 
     try {
@@ -127,6 +136,7 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
           'adviserId': _adviserId,
           'status': 'pending',
           'requestedAt': DateTime.now().toIso8601String(),
+          'signature': signature, // E-Signature for batch request
         };
 
         final borrowRef =
@@ -192,6 +202,19 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
         setState(() => _isSubmitting = false);
       }
     }
+  }
+
+  Future<String?> _showSignatureDialog() async {
+    return await showDialog<String>(
+      context: context,
+      barrierDismissible: true,
+      builder:
+          (context) => SignaturePad(
+            onSignatureComplete: (signature) {
+              Navigator.pop(context, signature);
+            },
+          ),
+    );
   }
 
   void _showSnackBar(String message, {required bool isError}) {

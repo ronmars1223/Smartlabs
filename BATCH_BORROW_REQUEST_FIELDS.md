@@ -75,7 +75,7 @@ Each item in the batch creates a separate request with the following fields:
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `signature` | `String` | ❌ No | Base64-encoded JSON string of the signature. **Note:** Batch requests currently do NOT include signature. |
+| `signature` | `String` | ❌ No | Base64-encoded JSON string of the signature. Included when user signs the batch request. |
 | `processedAt` | `String` | ❌ No | ISO 8601 timestamp when the request was processed (approved/rejected). Added by web admin. |
 | `processedBy` | `String` | ❌ No | User ID of the person who processed the request. Added by web admin. |
 | `releasedAt` | `String` | ❌ No | ISO 8601 timestamp when the item was released. Added by web admin. |
@@ -144,9 +144,9 @@ Each item in the batch creates a separate request with the following fields:
 ### **Batch Request**
 - ✅ Has `batchId` field
 - ✅ Has `batchSize` field
-- ❌ Does NOT have `signature` field
+- ✅ Has `signature` field (optional, included when user signs)
 - Multiple requests created (one per item)
-- All requests share same `batchId`, `batchSize`, `laboratory`, `dates`, `adviser`
+- All requests share same `batchId`, `batchSize`, `laboratory`, `dates`, `adviser`, `signature`
 
 ### **Single Request**
 - ❌ Does NOT have `batchId` field
@@ -208,7 +208,7 @@ Each item in the batch creates a separate request with the following fields:
 
 2. **Batch Size:** The `batchSize` field indicates how many items are in the batch. Useful for displaying batch information.
 
-3. **No Signature:** Batch requests currently do NOT include a signature field. This is different from single requests.
+3. **Signature:** Batch requests include a signature field when the user signs the batch request. The same signature is included in all requests within the batch.
 
 4. **Same Values:** All requests in a batch share the same:
    - `batchId`
@@ -217,6 +217,7 @@ Each item in the batch creates a separate request with the following fields:
    - `dateToBeUsed`, `dateToReturn`
    - `adviserName`, `adviserId`
    - `userId`, `userEmail`
+   - `signature` (when provided)
 
 5. **Different Values:** Each request in a batch has different:
    - `requestId` (unique)
