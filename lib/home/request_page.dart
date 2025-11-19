@@ -54,7 +54,7 @@ class _RequestPageState extends State<RequestPage>
 
       if (snapshot.exists) {
         final data = snapshot.value as Map<dynamic, dynamic>;
-        
+
         // Get unique user IDs to fetch student names
         final Set<String> userIds = {};
         data.forEach((key, value) {
@@ -70,7 +70,7 @@ class _RequestPageState extends State<RequestPage>
         if (userIds.isNotEmpty) {
           final usersSnapshot =
               await FirebaseDatabase.instance.ref().child('users').get();
-          
+
           if (usersSnapshot.exists) {
             final usersData = usersSnapshot.value as Map<dynamic, dynamic>;
             for (final userId in userIds) {
@@ -130,14 +130,53 @@ class _RequestPageState extends State<RequestPage>
         'processedBy': user.uid,
       };
 
-      await Future.wait([
+      final List<Future> updates = [
         FirebaseDatabase.instance
             .ref()
             .child('borrow_requests')
             .child(requestId)
             .update(updateData),
         _updateStudentRequest(requestId, updateData),
-      ]);
+      ];
+
+      // Update equipment quantity_borrowed when approving or rejecting
+      if (status == 'approved') {
+        updates.add(
+          _updateEquipmentQuantityBorrowed(
+            request['itemId'],
+            request['categoryId'],
+            request['quantity'],
+            increment: true,
+          ),
+        );
+      } else if (status == 'rejected') {
+        // If request was previously approved and now rejected, decrement
+        // (This handles the case where a request might be rejected after approval)
+        // Note: We need to check the current status before updating
+        final requestSnapshot =
+            await FirebaseDatabase.instance
+                .ref()
+                .child('borrow_requests')
+                .child(requestId)
+                .get();
+
+        if (requestSnapshot.exists) {
+          final requestData = requestSnapshot.value as Map<dynamic, dynamic>;
+          final previousStatus = requestData['status'] as String?;
+          if (previousStatus == 'approved') {
+            updates.add(
+              _updateEquipmentQuantityBorrowed(
+                request['itemId'],
+                request['categoryId'],
+                request['quantity'],
+                increment: false,
+              ),
+            );
+          }
+        }
+      }
+
+      await Future.wait(updates);
 
       // Send notification to student about status change
       await NotificationService.notifyRequestStatusChange(
@@ -157,6 +196,103 @@ class _RequestPageState extends State<RequestPage>
       _loadAdviserRequestsOnly();
     } catch (e) {
       _showSnackBar('Error updating request: $e', isError: true);
+    }
+  }
+
+  Future<void> _updateEquipmentQuantityBorrowed(
+    String itemId,
+    String categoryId,
+    Object? quantity, {
+    required bool increment,
+  }) async {
+    try {
+      final quantityValue = int.tryParse(quantity.toString()) ?? 1;
+
+      // Get current equipment item
+      final itemSnapshot =
+          await FirebaseDatabase.instance
+              .ref()
+              .child('equipment_categories')
+              .child(categoryId)
+              .child('equipments')
+              .child(itemId)
+              .get();
+
+      if (itemSnapshot.exists) {
+        final itemData = itemSnapshot.value as Map<dynamic, dynamic>;
+        final currentBorrowed =
+            int.tryParse(itemData['quantity_borrowed']?.toString() ?? '0') ?? 0;
+
+        final newBorrowed =
+            increment
+                ? currentBorrowed + quantityValue
+                : (currentBorrowed - quantityValue)
+                    .clamp(0, double.infinity)
+                    .toInt();
+
+        // Update quantity_borrowed
+        await FirebaseDatabase.instance
+            .ref()
+            .child('equipment_categories')
+            .child(categoryId)
+            .child('equipments')
+            .child(itemId)
+            .update({
+              'quantity_borrowed': newBorrowed,
+              'updatedAt': DateTime.now().toIso8601String(),
+            });
+
+        // Update category counts
+        await _updateCategoryCounts(categoryId);
+      }
+    } catch (e) {
+      debugPrint('Error updating equipment quantity_borrowed: $e');
+    }
+  }
+
+  Future<void> _updateCategoryCounts(String categoryId) async {
+    try {
+      final snapshot =
+          await FirebaseDatabase.instance
+              .ref()
+              .child('equipment_categories')
+              .child(categoryId)
+              .child('equipments')
+              .get();
+
+      int totalCount = 0;
+      int availableCount = 0;
+
+      if (snapshot.exists) {
+        final data = snapshot.value as Map<dynamic, dynamic>;
+
+        for (var itemData in data.values) {
+          final item = itemData as Map<dynamic, dynamic>;
+          final quantity =
+              int.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
+          final quantityBorrowed =
+              int.tryParse(item['quantity_borrowed']?.toString() ?? '0') ?? 0;
+
+          totalCount += quantity;
+
+          if (item['status']?.toString().toLowerCase() == 'available') {
+            final available = (quantity - quantityBorrowed).clamp(0, quantity);
+            availableCount += available;
+          }
+        }
+      }
+
+      await FirebaseDatabase.instance
+          .ref()
+          .child('equipment_categories')
+          .child(categoryId)
+          .update({
+            'totalCount': totalCount,
+            'availableCount': availableCount,
+            'updatedAt': DateTime.now().toIso8601String(),
+          });
+    } catch (e) {
+      debugPrint('Error updating category counts: $e');
     }
   }
 
@@ -410,7 +546,8 @@ class _RequestPageState extends State<RequestPage>
             : 'Not specified';
 
     final status = request['status'] ?? 'pending';
-    final studentName = request['userName'] ?? request['userEmail'] ?? 'Unknown Student';
+    final studentName =
+        request['userName'] ?? request['userEmail'] ?? 'Unknown Student';
     final itemName = request['itemName'] ?? 'Unknown Item';
     final categoryName = request['categoryName'] ?? 'Unknown Category';
     final laboratory = request['laboratory'] ?? 'Not specified';

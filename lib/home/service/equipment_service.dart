@@ -21,20 +21,36 @@ class EquipmentService {
           final categoryId = entry.key;
           final categoryData = entry.value as Map<dynamic, dynamic>;
 
-          // Count total equipment items for this category
+          // Calculate total count by summing quantities (consistent with _updateCategoryCounts)
           int totalCount = 0;
+          int availableCount = 0;
           if (categoryData['equipments'] != null) {
             final equipments =
                 categoryData['equipments'] as Map<dynamic, dynamic>;
-            totalCount = equipments.length;
+            
+            for (var itemData in equipments.values) {
+              final item = itemData as Map<dynamic, dynamic>;
+              final quantity =
+                  int.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
+              final quantityBorrowed =
+                  int.tryParse(item['quantity_borrowed']?.toString() ?? '0') ?? 0;
+              
+              totalCount += quantity;
+              
+              if (item['status']?.toString().toLowerCase() == 'available') {
+                // Available = total quantity - quantity borrowed
+                final available = (quantity - quantityBorrowed).clamp(0, quantity);
+                availableCount += available;
+              }
+            }
           }
 
-          // Create category with updated total count
+          // Create category with calculated counts
           final category = EquipmentCategory.fromMap(categoryId, categoryData);
           final updatedCategory = EquipmentCategory(
             id: category.id,
             title: category.title,
-            availableCount: category.availableCount,
+            availableCount: availableCount, // Use calculated value instead of stored
             totalCount: totalCount,
             icon: category.icon,
             color: category.color,
@@ -259,11 +275,15 @@ class EquipmentService {
           final item = itemData as Map<dynamic, dynamic>;
           final quantity =
               int.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
+          final quantityBorrowed =
+              int.tryParse(item['quantity_borrowed']?.toString() ?? '0') ?? 0;
 
           totalCount += quantity;
 
           if (item['status']?.toString().toLowerCase() == 'available') {
-            availableCount += quantity;
+            // Available = total quantity - quantity borrowed
+            final available = (quantity - quantityBorrowed).clamp(0, quantity);
+            availableCount += available;
           }
         }
       }

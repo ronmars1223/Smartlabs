@@ -128,6 +128,22 @@ class _BorrowingHistoryPageState extends State<BorrowingHistoryPage>
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) return;
 
+      // Get request data to update equipment quantity
+      final requestSnapshot = await FirebaseDatabase.instance
+          .ref()
+          .child('borrow_requests')
+          .child(requestId)
+          .get();
+
+      if (!requestSnapshot.exists) {
+        _showSnackBar('Request not found', isError: true);
+        return;
+      }
+
+      final requestData = requestSnapshot.value as Map<dynamic, dynamic>;
+      final status = requestData['status'] as String?;
+
+      // Update request status
       await FirebaseDatabase.instance
           .ref()
           .child('borrow_requests')
@@ -137,10 +153,112 @@ class _BorrowingHistoryPageState extends State<BorrowingHistoryPage>
             'status': 'returned',
           });
 
+      // Decrement quantity_borrowed if the request was approved/released
+      if (status == 'approved' || status == 'released') {
+        await _updateEquipmentQuantityBorrowed(
+          requestData['itemId'],
+          requestData['categoryId'],
+          requestData['quantity'],
+          increment: false,
+        );
+      }
+
       _showSnackBar('Item marked as returned successfully!', isError: false);
       _loadBorrowingHistory();
     } catch (e) {
       _showSnackBar('Error marking item as returned: $e', isError: true);
+    }
+  }
+
+  Future<void> _updateEquipmentQuantityBorrowed(
+    String itemId,
+    String categoryId,
+    Object? quantity, {
+    required bool increment,
+  }) async {
+    try {
+      final quantityValue = int.tryParse(quantity.toString()) ?? 1;
+      
+      // Get current equipment item
+      final itemSnapshot = await FirebaseDatabase.instance
+          .ref()
+          .child('equipment_categories')
+          .child(categoryId)
+          .child('equipments')
+          .child(itemId)
+          .get();
+
+      if (itemSnapshot.exists) {
+        final itemData = itemSnapshot.value as Map<dynamic, dynamic>;
+        final currentBorrowed =
+            int.tryParse(itemData['quantity_borrowed']?.toString() ?? '0') ?? 0;
+        
+        final newBorrowed = increment
+            ? currentBorrowed + quantityValue
+            : (currentBorrowed - quantityValue).clamp(0, double.infinity).toInt();
+
+        // Update quantity_borrowed
+        await FirebaseDatabase.instance
+            .ref()
+            .child('equipment_categories')
+            .child(categoryId)
+            .child('equipments')
+            .child(itemId)
+            .update({
+              'quantity_borrowed': newBorrowed,
+              'updatedAt': DateTime.now().toIso8601String(),
+            });
+
+        // Update category counts
+        await _updateCategoryCounts(categoryId);
+      }
+    } catch (e) {
+      debugPrint('Error updating equipment quantity_borrowed: $e');
+    }
+  }
+
+  Future<void> _updateCategoryCounts(String categoryId) async {
+    try {
+      final snapshot = await FirebaseDatabase.instance
+          .ref()
+          .child('equipment_categories')
+          .child(categoryId)
+          .child('equipments')
+          .get();
+
+      int totalCount = 0;
+      int availableCount = 0;
+
+      if (snapshot.exists) {
+        final data = snapshot.value as Map<dynamic, dynamic>;
+
+        for (var itemData in data.values) {
+          final item = itemData as Map<dynamic, dynamic>;
+          final quantity =
+              int.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
+          final quantityBorrowed =
+              int.tryParse(item['quantity_borrowed']?.toString() ?? '0') ?? 0;
+
+          totalCount += quantity;
+
+          if (item['status']?.toString().toLowerCase() == 'available') {
+            final available = (quantity - quantityBorrowed).clamp(0, quantity);
+            availableCount += available;
+          }
+        }
+      }
+
+      await FirebaseDatabase.instance
+          .ref()
+          .child('equipment_categories')
+          .child(categoryId)
+          .update({
+            'totalCount': totalCount,
+            'availableCount': availableCount,
+            'updatedAt': DateTime.now().toIso8601String(),
+          });
+    } catch (e) {
+      debugPrint('Error updating category counts: $e');
     }
   }
 
