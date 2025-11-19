@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:app/home/service/cart_service.dart';
 import 'package:app/home/service/association_mining_service.dart';
+import 'package:app/home/service/equipment_service.dart';
+import 'package:app/home/models/equipment_models.dart';
 import 'package:app/home/batch_borrow_form_page.dart';
 
 class CartPage extends StatefulWidget {
@@ -18,13 +20,115 @@ class _CartPageState extends State<CartPage> {
   void initState() {
     super.initState();
     _loadRecommendations();
+    // Listen to cart changes to refresh recommendations
+    _cartService.addListener(_onCartChanged);
+  }
+
+  @override
+  void dispose() {
+    _cartService.removeListener(_onCartChanged);
+    super.dispose();
+  }
+
+  void _onCartChanged() {
+    _loadRecommendations();
+  }
+
+  Future<void> _handleRecommendationTap(String itemName) async {
+    try {
+      // Search for the item by name
+      final allItems = await EquipmentService.getAllItems();
+      final matchingItems = allItems.where((item) => 
+        item.name.toLowerCase() == itemName.toLowerCase()
+      ).toList();
+
+      if (matchingItems.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Item "$itemName" not found'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+        return;
+      }
+
+      final item = matchingItems.first;
+      
+      // Check if item is already in cart
+      if (_cartService.containsItem(item.id)) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('This item is already in your cart'),
+              backgroundColor: Colors.blue,
+            ),
+          );
+        }
+        return;
+      }
+
+      // Get category name from categoryId
+      String categoryName = 'Unknown Category';
+      try {
+        final categories = await EquipmentService.getCategories();
+        final category = categories.firstWhere(
+          (cat) => cat.id == item.categoryId,
+          orElse: () => categories.isNotEmpty 
+            ? categories.first 
+            : EquipmentCategory(
+                id: '',
+                title: 'Unknown Category',
+                availableCount: 0,
+                icon: Icons.science,
+                color: Colors.grey,
+              ),
+        );
+        categoryName = category.title;
+      } catch (e) {
+        debugPrint('Error getting category name: $e');
+      }
+
+      // Add to cart with quantity 1
+      _cartService.addItem(
+        CartItem(
+          itemId: item.id,
+          categoryId: item.categoryId,
+          itemName: item.name,
+          categoryName: categoryName,
+          quantity: 1,
+        ),
+      );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('$itemName added to cart'),
+            duration: const Duration(seconds: 2),
+            backgroundColor: const Color(0xFF2AA39F),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error adding item: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _loadRecommendations() async {
     if (_cartService.isEmpty) {
-      setState(() {
-        _recommendations = [];
-      });
+      if (mounted) {
+        setState(() {
+          _recommendations = [];
+        });
+      }
       return;
     }
 
@@ -35,9 +139,11 @@ class _CartPageState extends State<CartPage> {
         itemNames,
       );
 
-      setState(() {
-        _recommendations = recommendations;
-      });
+      if (mounted) {
+        setState(() {
+          _recommendations = recommendations;
+        });
+      }
     } catch (e) {
       // Silently fail - recommendations are optional
     }
@@ -53,39 +159,44 @@ class _CartPageState extends State<CartPage> {
         foregroundColor: Colors.white,
         elevation: 0,
         actions: [
-          if (_cartService.isNotEmpty)
-            TextButton.icon(
-              onPressed: () {
-                showDialog(
-                  context: context,
-                  builder:
-                      (context) => AlertDialog(
-                        title: const Text('Clear Cart'),
-                        content: const Text(
-                          'Are you sure you want to remove all items from cart?',
-                        ),
-                        actions: [
-                          TextButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Cancel'),
+          ListenableBuilder(
+            listenable: _cartService,
+            builder: (context, child) {
+              if (_cartService.isEmpty) return const SizedBox.shrink();
+              return TextButton.icon(
+                onPressed: () {
+                  showDialog(
+                    context: context,
+                    builder:
+                        (context) => AlertDialog(
+                          title: const Text('Clear Cart'),
+                          content: const Text(
+                            'Are you sure you want to remove all items from cart?',
                           ),
-                          ElevatedButton(
-                            onPressed: () {
-                              _cartService.clear();
-                              Navigator.pop(context);
-                            },
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.red,
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: const Text('Cancel'),
                             ),
-                            child: const Text('Clear All'),
-                          ),
-                        ],
-                      ),
-                );
-              },
-              icon: const Icon(Icons.delete_outline, color: Colors.white),
-              label: const Text('Clear', style: TextStyle(color: Colors.white)),
-            ),
+                            ElevatedButton(
+                              onPressed: () {
+                                _cartService.clear();
+                                Navigator.pop(context);
+                              },
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: Colors.red,
+                              ),
+                              child: const Text('Clear All'),
+                            ),
+                          ],
+                        ),
+                  );
+                },
+                icon: const Icon(Icons.delete_outline, color: Colors.white),
+                label: const Text('Clear', style: TextStyle(color: Colors.white)),
+              );
+            },
+          ),
         ],
       ),
       body: ListenableBuilder(
@@ -390,45 +501,55 @@ class _CartPageState extends State<CartPage> {
             runSpacing: 8,
             children:
                 _recommendations.map((itemName) {
-                  return Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                        color: const Color(0xFF2AA39F).withValues(alpha: 0.3),
+                  return InkWell(
+                    onTap: () => _handleRecommendationTap(itemName),
+                    borderRadius: BorderRadius.circular(20),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
                       ),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 4,
-                          offset: const Offset(0, 2),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(
+                          color: const Color(0xFF2AA39F).withValues(alpha: 0.3),
                         ),
-                      ],
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(
-                          Icons.auto_awesome,
-                          size: 16,
-                          color: Color(0xFF2AA39F),
-                        ),
-                        const SizedBox(width: 6),
-                        Flexible(
-                          child: Text(
-                            itemName,
-                            style: const TextStyle(
-                              fontSize: 13,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF2C3E50),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.05),
+                            blurRadius: 4,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(
+                            Icons.auto_awesome,
+                            size: 16,
+                            color: Color(0xFF2AA39F),
+                          ),
+                          const SizedBox(width: 6),
+                          Flexible(
+                            child: Text(
+                              itemName,
+                              style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF2C3E50),
+                              ),
                             ),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 4),
+                          const Icon(
+                            Icons.add_circle_outline,
+                            size: 16,
+                            color: Color(0xFF2AA39F),
+                          ),
+                        ],
+                      ),
                     ),
                   );
                 }).toList(),
