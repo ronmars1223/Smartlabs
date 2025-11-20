@@ -345,6 +345,22 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey.shade50,
+      appBar: AppBar(
+        title: const Text(
+          'Analytics',
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
+          ),
+        ),
+        backgroundColor: const Color(0xFF2AA39F),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => Navigator.pop(context),
+        ),
+      ),
       body:
           _isLoading
               ? const Center(
@@ -484,9 +500,9 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
           crossAxisCount: 2,
-          crossAxisSpacing: 16,
-          mainAxisSpacing: 16,
-          childAspectRatio: 1.5,
+          crossAxisSpacing: 12,
+          mainAxisSpacing: 12,
+          childAspectRatio: 1.4,
           children: [
             _buildStatCard(
               'Total Requests',
@@ -525,7 +541,7 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     Color color,
   ) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
@@ -539,26 +555,35 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, color: color, size: 32),
-          const SizedBox(height: 12),
-          Text(
-            value,
-            style: TextStyle(
-              fontSize: 28,
-              fontWeight: FontWeight.bold,
-              color: color,
+          Icon(icon, color: color, size: 28),
+          const SizedBox(height: 8),
+          Flexible(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: color,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           const SizedBox(height: 4),
-          Text(
-            title,
-            style: const TextStyle(
-              fontSize: 14,
-              fontWeight: FontWeight.w500,
-              color: Color(0xFF7F8C8D),
+          Flexible(
+            child: Text(
+              title,
+              style: const TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: Color(0xFF7F8C8D),
+              ),
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            textAlign: TextAlign.center,
           ),
         ],
       ),
@@ -623,16 +648,19 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                             style: const TextStyle(
                               color: Color(0xFF2AA39F),
                               fontWeight: FontWeight.bold,
+                              fontSize: 12,
                             ),
                           ),
                         ),
                         title: Text(
                           equipment['name'],
                           style: const TextStyle(fontWeight: FontWeight.w600),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         trailing: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
+                            horizontal: 10,
                             vertical: 6,
                           ),
                           decoration: BoxDecoration(
@@ -642,11 +670,11 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                           child: Text(
-                            '${equipment['count']} requests',
+                            '${equipment['count']}',
                             style: const TextStyle(
                               color: Color(0xFF2AA39F),
                               fontWeight: FontWeight.w600,
-                              fontSize: 12,
+                              fontSize: 11,
                             ),
                           ),
                         ),
@@ -732,24 +760,31 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                       return ListTile(
                         leading: CircleAvatar(
                           backgroundColor: statusColor.withValues(alpha: 0.1),
-                          child: Icon(statusIcon, color: statusColor, size: 20),
+                          child: Icon(statusIcon, color: statusColor, size: 18),
                         ),
                         title: Text(
                           activity['itemName'],
-                          style: const TextStyle(fontWeight: FontWeight.w600),
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         subtitle: Text(
                           '${activity['userEmail']} • $statusText',
                           style: TextStyle(
                             color: Colors.grey.shade600,
-                            fontSize: 12,
+                            fontSize: 11,
                           ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                         ),
                         trailing: Text(
                           _formatTimeAgo(activity['requestedAt']),
                           style: TextStyle(
                             color: Colors.grey.shade500,
-                            fontSize: 12,
+                            fontSize: 11,
                           ),
                         ),
                       );
@@ -925,41 +960,44 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       child: Row(
         children: [
           Expanded(
             flex: 3,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
               children: [
                 Row(
                   children: [
                     Flexible(
+                      flex: 1,
                       child: Text(
                         rule.itemA,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                          fontSize: 12,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
                     const Padding(
-                      padding: EdgeInsets.symmetric(horizontal: 8),
+                      padding: EdgeInsets.symmetric(horizontal: 4),
                       child: Icon(
                         Icons.arrow_forward,
-                        size: 16,
+                        size: 14,
                         color: Color(0xFF2AA39F),
                       ),
                     ),
                     Flexible(
+                      flex: 1,
                       child: Text(
                         rule.itemB,
                         style: const TextStyle(
                           fontWeight: FontWeight.w600,
-                          fontSize: 13,
+                          fontSize: 12,
                           color: Color(0xFF2AA39F),
                         ),
                         maxLines: 1,
@@ -970,41 +1008,52 @@ class _AnalyticsPageState extends State<AnalyticsPage> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '${rule.coOccurrenceCount} times together',
-                  style: TextStyle(fontSize: 11, color: Colors.grey.shade600),
+                  '${rule.coOccurrenceCount} times',
+                  style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
           Expanded(
+            flex: 1,
             child: Text(
               '${(rule.support * 100).toStringAsFixed(1)}%',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           Expanded(
+            flex: 1,
             child: Text(
               '${(rule.confidence * 100).toStringAsFixed(0)}%',
-              style: TextStyle(fontSize: 12, color: Colors.grey.shade700),
+              style: TextStyle(fontSize: 11, color: Colors.grey.shade700),
               textAlign: TextAlign.center,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           Expanded(
+            flex: 1,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
               decoration: BoxDecoration(
                 color: getLiftColor(rule.lift).withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Text(
-                rule.lift.toStringAsFixed(2),
+                rule.lift.toStringAsFixed(1),
                 style: TextStyle(
-                  fontSize: 12,
+                  fontSize: 11,
                   fontWeight: FontWeight.bold,
                   color: getLiftColor(rule.lift),
                 ),
                 textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),

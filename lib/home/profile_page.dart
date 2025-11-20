@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
-import 'package:app/home/analytics_page.dart';
+// import 'package:app/home/analytics_page.dart'; // Hidden for now
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -150,18 +150,19 @@ class _ProfilePageState extends State<ProfilePage> {
               Icons.lock,
               _showChangePasswordDialog,
             ),
-            if (_userRole == 'teacher') ...[
-              const SizedBox(height: 30),
-              _buildSectionHeader('Analytics'),
-              _buildProfileOption('View Analytics', Icons.analytics, () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const AnalyticsPage(),
-                  ),
-                );
-              }),
-            ],
+            // Analytics section hidden for now
+            // if (_userRole == 'teacher') ...[
+            //   const SizedBox(height: 30),
+            //   _buildSectionHeader('Analytics'),
+            //   _buildProfileOption('View Analytics', Icons.analytics, () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(
+            //         builder: (context) => const AnalyticsPage(),
+            //       ),
+            //     );
+            //   }),
+            // ],
 
             const SizedBox(height: 30),
 
