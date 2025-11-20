@@ -3,6 +3,8 @@ import 'package:app/home/service/form_service.dart';
 import 'package:app/home/service/teacher_service.dart';
 import 'package:app/home/service/laboratory_service.dart';
 import 'package:flutter/material.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_database/firebase_database.dart';
 
 import 'widgets/form_sections.dart';
 import 'widgets/form_widgets.dart';
@@ -37,6 +39,7 @@ class _BorrowFormPageState extends State<BorrowFormPage>
   DateTime? _dateToReturn;
   Laboratory? _selectedLaboratory;
   bool _isSubmitting = false;
+  String _userRole = '';
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -51,6 +54,7 @@ class _BorrowFormPageState extends State<BorrowFormPage>
     super.initState();
     _initializeAnimations();
     _initializeForm();
+    _loadUserRole();
     _teacherService.loadTeachers();
     _laboratoryService.loadLaboratories().then((_) {
       // Set default laboratory to first available lab
@@ -63,6 +67,28 @@ class _BorrowFormPageState extends State<BorrowFormPage>
         }
       }
     });
+  }
+
+  Future<void> _loadUserRole() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final snapshot = await FirebaseDatabase.instance
+          .ref()
+          .child('users')
+          .child(user.uid)
+          .get();
+
+      if (snapshot.exists) {
+        final data = snapshot.value as Map<dynamic, dynamic>;
+        setState(() {
+          _userRole = data['role'] ?? '';
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading user role: $e');
+    }
   }
 
   void _initializeAnimations() {
@@ -253,22 +279,23 @@ class _BorrowFormPageState extends State<BorrowFormPage>
                     onDateSelected: _selectDate,
                   ),
 
-                  // Instructor Section
-                  ListenableBuilder(
-                    listenable: _teacherService,
-                    builder: (context, child) {
-                      return AdviserSection(
-                        teachers: _teacherService.teachers,
-                        isLoading: _teacherService.isLoading,
-                        adviserController: _adviserController,
-                        onAdviserChanged: (value) {
-                          setState(() {
-                            _adviserController.text = value ?? '';
-                          });
-                        },
-                      );
-                    },
-                  ),
+                  // Instructor Section (only for students)
+                  if (_userRole != 'teacher')
+                    ListenableBuilder(
+                      listenable: _teacherService,
+                      builder: (context, child) {
+                        return AdviserSection(
+                          teachers: _teacherService.teachers,
+                          isLoading: _teacherService.isLoading,
+                          adviserController: _adviserController,
+                          onAdviserChanged: (value) {
+                            setState(() {
+                              _adviserController.text = value ?? '';
+                            });
+                          },
+                        );
+                      },
+                    ),
 
                   // Submit Button
                   FormWidgets.buildSubmitButton(

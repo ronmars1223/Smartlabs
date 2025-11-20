@@ -27,10 +27,12 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
   String _adviserName = '';
   String _adviserId = '';
   bool _isSubmitting = false;
+  String _userRole = '';
 
   @override
   void initState() {
     super.initState();
+    _loadUserRole();
     _teacherService.loadTeachers();
     _laboratoryService.loadLaboratories().then((_) {
       // Set default laboratory to first available lab
@@ -43,6 +45,33 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
         }
       }
     });
+  }
+
+  Future<void> _loadUserRole() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) return;
+
+    try {
+      final snapshot = await FirebaseDatabase.instance
+          .ref()
+          .child('users')
+          .child(user.uid)
+          .get();
+
+      if (snapshot.exists) {
+        final data = snapshot.value as Map<dynamic, dynamic>;
+        setState(() {
+          _userRole = data['role'] ?? '';
+          // For teachers, set themselves as adviser
+          if (_userRole == 'teacher') {
+            _adviserId = user.uid;
+            _adviserName = data['name'] ?? user.email ?? 'Instructor';
+          }
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading user role: $e');
+    }
   }
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
@@ -80,7 +109,8 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
       return;
     }
 
-    if (_adviserName.isEmpty || _adviserId.isEmpty) {
+    // For students, adviser is required; for teachers, they are auto-assigned
+    if (_userRole != 'teacher' && (_adviserName.isEmpty || _adviserId.isEmpty)) {
       _showSnackBar('Please select an instructor', isError: true);
       return;
     }
@@ -88,6 +118,30 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
     if (_selectedLaboratory == null) {
       _showSnackBar('Please select a laboratory', isError: true);
       return;
+    }
+
+    // For teachers, ensure they are set as their own adviser
+    if (_userRole == 'teacher') {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        _adviserId = user.uid;
+        // Get user name if not already set
+        if (_adviserName.isEmpty) {
+          try {
+            final snapshot = await FirebaseDatabase.instance
+                .ref()
+                .child('users')
+                .child(user.uid)
+                .get();
+            if (snapshot.exists) {
+              final data = snapshot.value as Map<dynamic, dynamic>;
+              _adviserName = data['name'] ?? user.email ?? 'Instructor';
+            }
+          } catch (e) {
+            _adviserName = user.email ?? 'Instructor';
+          }
+        }
+      }
     }
 
     // Show signature dialog first
@@ -104,6 +158,9 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
       final user = FirebaseAuth.instance.currentUser;
       if (user == null) throw Exception('User not authenticated');
 
+      // Check if user is a teacher (auto-approve)
+      final isTeacher = _userRole == 'teacher';
+      
       // Create a batch request ID (shared by all items in this batch)
       final batchId =
           FirebaseDatabase.instance.ref().child('batch_requests').push().key!;
@@ -116,7 +173,10 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
       // Create individual requests for each cart item
       // All items share the same batchId to group them together
       for (var item in _cartService.items) {
-        final borrowRequestData = {
+        // Set status: 'approved' for teachers, 'pending' for students
+        final status = isTeacher ? 'approved' : 'pending';
+        
+        final borrowRequestData = <String, dynamic>{
           'batchId': batchId, // Same batchId for all items in this batch
           'batchSize': batchSize, // Total number of items in this batch
           'userId': user.uid,
@@ -134,9 +194,11 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
           'dateToReturn': _dateToReturn!.toIso8601String(),
           'adviserName': _adviserName,
           'adviserId': _adviserId,
-          'status': 'pending',
+          'status': status,
           'requestedAt': DateTime.now().toIso8601String(),
           'signature': signature, // E-Signature for batch request
+          if (isTeacher) 'processedAt': DateTime.now().toIso8601String(),
+          if (isTeacher) 'processedBy': user.uid,
         };
 
         final borrowRef =
@@ -147,41 +209,66 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
 
         requests.add(borrowRef.set(borrowRequestData));
 
-        // Note: quantity_borrowed is now handled by web admin on approval
-        // We only create the request here, web admin will manage quantities
+        // For teachers: Auto-approve - update equipment quantity_borrowed immediately
+        if (isTeacher) {
+          requests.add(_updateEquipmentQuantityBorrowed(
+            item.itemId,
+            item.categoryId,
+            item.quantity,
+            increment: true,
+          ));
+        }
       }
 
-      // Send notification to instructor about the batch request
-      requests.add(
-        NotificationService.sendNotificationToUser(
-          userId: _adviserId,
-          title: 'New Batch Borrow Request',
-          message:
-              '${user.email} has requested to borrow ${_cartService.itemCount} items',
-          type: 'info',
-          additionalData: {
-            'batchId': batchId,
-            'itemCount': _cartService.itemCount,
-            'studentEmail': user.email,
-            'requestedAt': DateTime.now().toIso8601String(),
-          },
-        ),
-      );
+      if (isTeacher) {
+        // For teachers: Send approval confirmation
+        requests.add(
+          NotificationService.sendNotificationToUser(
+            userId: user.uid,
+            title: 'Batch Request Approved',
+            message:
+                'Your request for ${_cartService.itemCount} items has been automatically approved.',
+            type: 'success',
+            additionalData: {
+              'batchId': batchId,
+              'itemCount': _cartService.itemCount,
+              'status': 'approved',
+            },
+          ),
+        );
+      } else {
+        // For students: Send notification to instructor about the batch request
+        requests.add(
+          NotificationService.sendNotificationToUser(
+            userId: _adviserId,
+            title: 'New Batch Borrow Request',
+            message:
+                '${user.email} has requested to borrow ${_cartService.itemCount} items',
+            type: 'info',
+            additionalData: {
+              'batchId': batchId,
+              'itemCount': _cartService.itemCount,
+              'studentEmail': user.email,
+              'requestedAt': DateTime.now().toIso8601String(),
+            },
+          ),
+        );
 
-      // Send confirmation to student
-      requests.add(
-        NotificationService.sendNotificationToUser(
-          userId: user.uid,
-          title: 'Batch Request Submitted',
-          message:
-              'Your request for ${_cartService.itemCount} items has been submitted and is pending approval',
-          type: 'success',
-          additionalData: {
-            'batchId': batchId,
-            'itemCount': _cartService.itemCount,
-          },
-        ),
-      );
+        // Send confirmation to student
+        requests.add(
+          NotificationService.sendNotificationToUser(
+            userId: user.uid,
+            title: 'Batch Request Submitted',
+            message:
+                'Your request for ${_cartService.itemCount} items has been submitted and is pending approval',
+            type: 'success',
+            additionalData: {
+              'batchId': batchId,
+              'itemCount': _cartService.itemCount,
+            },
+          ),
+        );
+      }
 
       await Future.wait(requests);
 
@@ -269,8 +356,11 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
               _buildScheduleSection(),
               const SizedBox(height: 24),
 
-              // Instructor Section
-              _buildAdviserSection(),
+              // Instructor Section (only for students)
+              if (_userRole != 'teacher')
+                _buildAdviserSection(),
+              if (_userRole != 'teacher')
+                const SizedBox(height: 24),
               const SizedBox(height: 32),
 
               // Submit Button
@@ -620,5 +710,97 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
         ],
       ),
     );
+  }
+
+  /// Update equipment quantity_borrowed when request is approved
+  Future<void> _updateEquipmentQuantityBorrowed(
+    String itemId,
+    String categoryId,
+    int quantity, {
+    required bool increment,
+  }) async {
+    try {
+      // Get current equipment item
+      final itemSnapshot = await FirebaseDatabase.instance
+          .ref()
+          .child('equipment_categories')
+          .child(categoryId)
+          .child('equipments')
+          .child(itemId)
+          .get();
+
+      if (itemSnapshot.exists) {
+        final itemData = itemSnapshot.value as Map<dynamic, dynamic>;
+        final currentBorrowed =
+            int.tryParse(itemData['quantity_borrowed']?.toString() ?? '0') ?? 0;
+
+        final newBorrowed = increment
+            ? currentBorrowed + quantity
+            : (currentBorrowed - quantity).clamp(0, double.infinity).toInt();
+
+        // Update quantity_borrowed
+        await FirebaseDatabase.instance
+            .ref()
+            .child('equipment_categories')
+            .child(categoryId)
+            .child('equipments')
+            .child(itemId)
+            .update({
+              'quantity_borrowed': newBorrowed,
+              'updatedAt': DateTime.now().toIso8601String(),
+            });
+
+        // Update category counts
+        await _updateCategoryCounts(categoryId);
+      }
+    } catch (e) {
+      debugPrint('Error updating equipment quantity_borrowed: $e');
+    }
+  }
+
+  /// Update category counts after equipment quantity change
+  Future<void> _updateCategoryCounts(String categoryId) async {
+    try {
+      final snapshot = await FirebaseDatabase.instance
+          .ref()
+          .child('equipment_categories')
+          .child(categoryId)
+          .child('equipments')
+          .get();
+
+      int totalCount = 0;
+      int availableCount = 0;
+
+      if (snapshot.exists) {
+        final data = snapshot.value as Map<dynamic, dynamic>;
+
+        for (var itemData in data.values) {
+          final item = itemData as Map<dynamic, dynamic>;
+          final quantity =
+              int.tryParse(item['quantity']?.toString() ?? '0') ?? 0;
+          final quantityBorrowed =
+              int.tryParse(item['quantity_borrowed']?.toString() ?? '0') ?? 0;
+
+          totalCount += quantity;
+
+          if (item['status']?.toString().toLowerCase() == 'available') {
+            final available = (quantity - quantityBorrowed).clamp(0, quantity);
+            availableCount += available;
+          }
+        }
+      }
+
+      await FirebaseDatabase.instance
+          .ref()
+          .child('equipment_categories')
+          .child(categoryId)
+          .update({
+            'totalCount': totalCount,
+            'availableCount': availableCount,
+            'updatedAt': DateTime.now().toIso8601String(),
+          });
+    } catch (e) {
+      debugPrint('Error updating category counts: $e');
+    }
   }
 }
