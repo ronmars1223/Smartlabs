@@ -7,6 +7,15 @@ import 'notification_service.dart';
 
 class DueDateReminderService {
   static final _database = FirebaseDatabase.instance;
+  
+  // Philippine timezone is UTC+8
+  static const int _philippineTimeOffset = 8;
+
+  /// Get current time in Philippine timezone
+  static DateTime _getPhilippineTime() {
+    final now = DateTime.now().toUtc();
+    return now.add(Duration(hours: _philippineTimeOffset));
+  }
 
   /// Check all active borrows for due date reminders
   /// This should be called when app starts or periodically
@@ -26,7 +35,7 @@ class DueDateReminderService {
       if (!snapshot.exists) return;
 
       final data = snapshot.value as Map<dynamic, dynamic>;
-      final now = DateTime.now();
+      final nowPH = _getPhilippineTime(); // Philippine time
 
       for (var entry in data.entries) {
         final request = entry.value as Map<dynamic, dynamic>;
@@ -41,48 +50,56 @@ class DueDateReminderService {
         if (dateToReturn == null || itemName == null) continue;
 
         try {
-          final returnDate = DateTime.parse(dateToReturn);
-          final daysUntilDue = returnDate.difference(now).inDays;
+          // Parse return date and convert to Philippine time
+          final returnDateUTC = DateTime.parse(dateToReturn);
+          final returnDatePH = returnDateUTC.add(Duration(hours: _philippineTimeOffset));
+          
+          // Get start of day for comparison
+          final nowStartOfDay = DateTime(nowPH.year, nowPH.month, nowPH.day);
+          final returnDateStartOfDay = DateTime(returnDatePH.year, returnDatePH.month, returnDatePH.day);
+          final daysUntilDue = returnDateStartOfDay.difference(nowStartOfDay).inDays;
 
-          // Check if we should send a reminder
-          // Send reminder 3 days before, 1 day before, and on due date
-          if (daysUntilDue == 3) {
+          // Check if overdue (past due date)
+          if (daysUntilDue < 0) {
+            // Overdue - send reminder once per day
+            // Check if it's been at least 1 day since the due date
             await _sendReminder(
               userId: user.uid,
               requestId: requestId,
               itemName: itemName,
-              returnDate: returnDate,
-              reminderType: 'due_soon',
-              daysUntilDue: daysUntilDue,
-            );
-          } else if (daysUntilDue == 1) {
-            await _sendReminder(
-              userId: user.uid,
-              requestId: requestId,
-              itemName: itemName,
-              returnDate: returnDate,
-              reminderType: 'due_soon',
-              daysUntilDue: daysUntilDue,
-            );
-          } else if (daysUntilDue == 0) {
-            await _sendReminder(
-              userId: user.uid,
-              requestId: requestId,
-              itemName: itemName,
-              returnDate: returnDate,
-              reminderType: 'due_soon',
-              daysUntilDue: daysUntilDue,
-            );
-          } else if (daysUntilDue < 0) {
-            // Overdue - send daily reminder
-            await _sendReminder(
-              userId: user.uid,
-              requestId: requestId,
-              itemName: itemName,
-              returnDate: returnDate,
+              returnDate: returnDatePH,
               reminderType: 'overdue',
               daysUntilDue: daysUntilDue,
             );
+          } else if (daysUntilDue == 0) {
+            // Due today - send reminder 1 hour before 5 PM (4:00 PM - 4:59 PM Philippine time)
+            final reminderTimeStart = DateTime(returnDatePH.year, returnDatePH.month, returnDatePH.day, 16, 0); // 4:00 PM
+            final reminderTimeEnd = DateTime(returnDatePH.year, returnDatePH.month, returnDatePH.day, 16, 59); // 4:59 PM
+            final labClosingTime = DateTime(returnDatePH.year, returnDatePH.month, returnDatePH.day, 17, 0); // 5:00 PM
+            
+            // Check if current time is between 4:00 PM and 4:59 PM on the due date
+            if (nowPH.isAfter(reminderTimeStart.subtract(const Duration(minutes: 1))) &&
+                nowPH.isBefore(reminderTimeEnd.add(const Duration(minutes: 1)))) {
+              await _sendReminder(
+                userId: user.uid,
+                requestId: requestId,
+                itemName: itemName,
+                returnDate: returnDatePH,
+                reminderType: 'due_today',
+                daysUntilDue: daysUntilDue,
+              );
+            }
+            // Also send overdue reminder if past 5 PM on due date
+            else if (nowPH.isAfter(labClosingTime)) {
+              await _sendReminder(
+                userId: user.uid,
+                requestId: requestId,
+                itemName: itemName,
+                returnDate: returnDatePH,
+                reminderType: 'overdue',
+                daysUntilDue: -1, // Technically overdue after closing time
+              );
+            }
           }
         } catch (e) {
           debugPrint('Error parsing date for reminder: $e');
@@ -93,7 +110,7 @@ class DueDateReminderService {
     }
   }
 
-  /// Send a reminder notification (only if not already sent today)
+  /// Send a reminder notification (only if not already sent for this reminder type)
   static Future<void> _sendReminder({
     required String userId,
     required String requestId,
@@ -103,8 +120,14 @@ class DueDateReminderService {
     required int daysUntilDue,
   }) async {
     try {
-      // Check if reminder was already sent today for this request
-      final reminderKey = 'reminder_${requestId}_${DateFormat('yyyy-MM-dd').format(DateTime.now())}';
+      final nowPH = _getPhilippineTime();
+      String reminderKey;
+      
+      // Create reminder key based on type
+      // For due_today: use date only (send once on the due date during 4 PM window)
+      // For overdue: use date only (send once per day)
+      reminderKey = 'reminder_${requestId}_${reminderType}_${DateFormat('yyyy-MM-dd').format(nowPH)}';
+      
       final reminderCheck = await _database
           .ref()
           .child('reminders_sent')
@@ -113,7 +136,7 @@ class DueDateReminderService {
           .get();
 
       if (reminderCheck.exists) {
-        // Already sent today, skip
+        // Already sent for this reminder type, skip
         return;
       }
 

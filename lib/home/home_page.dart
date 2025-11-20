@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:app/home/bottomnavbar.dart';
 import 'package:app/home/notification_modal.dart';
 import 'package:app/home/service/notification_service.dart';
@@ -20,12 +21,13 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   bool _isLoading = true;
   String _userName = 'User';
   String _userRole = '';
   int _currentIndex = 0; // Current tab index
   int _notificationCount = 0;
+  Timer? _reminderTimer; // Timer for periodic reminder checks
 
   // List of page widgets
   late List<Widget> _pages;
@@ -37,6 +39,9 @@ class _HomePageState extends State<HomePage> {
     FirebaseDatabase.instance.databaseURL =
         'https://smartlab-e2107-default-rtdb.asia-southeast1.firebasedatabase.app';
 
+    // Add lifecycle observer to check reminders when app comes to foreground
+    WidgetsBinding.instance.addObserver(this);
+
     // If forceReload is true, clear any cached data
     if (widget.forceReload) {
       _isLoading = true;
@@ -46,11 +51,43 @@ class _HomePageState extends State<HomePage> {
     _loadUserData();
     _loadNotificationCount();
     _checkDueDateReminders();
+    _startReminderTimer();
+  }
+
+  @override
+  void dispose() {
+    _reminderTimer?.cancel();
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    // Check reminders when app comes to foreground
+    if (state == AppLifecycleState.resumed) {
+      _checkDueDateReminders();
+      _loadNotificationCount();
+      _startReminderTimer(); // Restart timer when app resumes
+    } else if (state == AppLifecycleState.paused) {
+      _reminderTimer?.cancel(); // Stop timer when app is paused
+    }
+  }
+
+  /// Start periodic timer to check for reminders every 5 minutes
+  /// This ensures we catch the 4 PM reminder window
+  void _startReminderTimer() {
+    _reminderTimer?.cancel();
+    _reminderTimer = Timer.periodic(const Duration(minutes: 5), (timer) {
+      _checkDueDateReminders();
+    });
   }
 
   Future<void> _checkDueDateReminders() async {
-    // Check for due date reminders when app starts
+    // Check for due date reminders when app starts, comes to foreground, or periodically
     await DueDateReminderService.checkAndSendReminders();
+    // Refresh notification count after checking reminders
+    _loadNotificationCount();
   }
 
   // Initialize pages after user role is loaded
@@ -193,6 +230,8 @@ class _HomePageState extends State<HomePage> {
               showNotificationModal(context);
               // Refresh notification count after opening modal
               _loadNotificationCount();
+              // Also check for new reminders
+              _checkDueDateReminders();
             },
           ),
           const SizedBox(width: 8),

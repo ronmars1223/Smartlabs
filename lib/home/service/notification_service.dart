@@ -132,6 +132,11 @@ class NotificationService {
         message = 'Please return $itemName by $dueDate.';
         type = 'warning';
         break;
+      case 'due_today':
+        title = 'Due Today - Return Reminder';
+        message = '$itemName is due today ($dueDate). Please return it before 5:00 PM.';
+        type = 'warning';
+        break;
       case 'overdue':
         title = 'Overdue Item';
         message =
