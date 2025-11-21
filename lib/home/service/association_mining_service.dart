@@ -36,26 +36,27 @@ class AssociationMiningService {
 
   /// Analyzes borrowing patterns and finds items frequently borrowed together
   /// Uses a simplified Apriori-like algorithm
+  /// Based on batch borrow requests where items are borrowed together
   static Future<List<AssociationRule>> findAssociationRules({
     double minSupport = 0.02, // Minimum 2% support
     double minConfidence = 0.3, // Minimum 30% confidence
     double minLift = 1.0, // Lift > 1 indicates positive correlation
   }) async {
     try {
-      // Step 1: Get all approved and returned borrow requests grouped by user
-      final userBorrowings = await _getUserBorrowingPatterns();
+      // Step 1: Get all approved and returned batch borrow requests grouped by batchId
+      final batchBorrowings = await _getBatchBorrowingPatterns();
 
-      if (userBorrowings.isEmpty) {
+      if (batchBorrowings.isEmpty) {
         return [];
       }
 
       // Step 2: Find frequent item pairs (co-occurrences)
-      final itemPairs = _findFrequentPairs(userBorrowings);
+      final itemPairs = _findFrequentPairs(batchBorrowings);
 
       // Step 3: Calculate association metrics
       final rules = _calculateAssociationRules(
         itemPairs,
-        userBorrowings,
+        batchBorrowings,
         minSupport,
         minConfidence,
         minLift,
@@ -71,48 +72,50 @@ class AssociationMiningService {
     }
   }
 
-  /// Get borrowing patterns grouped by user
-  static Future<Map<String, Set<String>>> _getUserBorrowingPatterns() async {
+  /// Get borrowing patterns grouped by batchId
+  /// Only considers batch borrow requests (requests with batchId field)
+  static Future<Map<String, Set<String>>> _getBatchBorrowingPatterns() async {
     final snapshot = await _database.ref().child('borrow_requests').get();
 
-    Map<String, Set<String>> userBorrowings = {};
+    Map<String, Set<String>> batchBorrowings = {};
 
     if (snapshot.exists) {
       final data = snapshot.value as Map<dynamic, dynamic>;
 
       for (var request in data.values) {
         final requestData = request as Map<dynamic, dynamic>;
-        final userId = requestData['userId'] as String?;
+        final batchId = requestData['batchId'] as String?;
         final itemName = requestData['itemName'] as String?;
         final status = requestData['status'] as String?;
 
-        // Consider approved and returned requests (returned indicates completed borrowing)
-        if (userId != null &&
+        // Only consider batch borrow requests that are approved or returned
+        // Batch requests have batchId field, individual requests don't
+        if (batchId != null &&
             itemName != null &&
             (status == 'approved' || status == 'returned') &&
             itemName != 'Unknown') {
-          userBorrowings.putIfAbsent(userId, () => <String>{});
-          userBorrowings[userId]!.add(itemName);
+          batchBorrowings.putIfAbsent(batchId, () => <String>{});
+          batchBorrowings[batchId]!.add(itemName);
         }
       }
     }
 
-    // Filter users who borrowed at least 2 different items
-    userBorrowings.removeWhere((key, value) => value.length < 2);
+    // Filter batches with at least 2 different items (for meaningful associations)
+    batchBorrowings.removeWhere((key, value) => value.length < 2);
 
-    return userBorrowings;
+    return batchBorrowings;
   }
 
-  /// Find all pairs of items borrowed together
+  /// Find all pairs of items borrowed together in the same batch
   static Map<String, Map<String, int>> _findFrequentPairs(
-    Map<String, Set<String>> userBorrowings,
+    Map<String, Set<String>> batchBorrowings,
   ) {
     Map<String, Map<String, int>> pairCounts = {};
 
-    for (var items in userBorrowings.values) {
+    for (var items in batchBorrowings.values) {
       final itemList = items.toList();
 
-      // Generate all pairs from this user's borrowings
+      // Generate all pairs from this batch's items
       for (int i = 0; i < itemList.length; i++) {
         for (int j = i + 1; j < itemList.length; j++) {
           final itemA = itemList[i];
@@ -139,19 +142,19 @@ class AssociationMiningService {
   /// Calculate association rule metrics
   static List<AssociationRule> _calculateAssociationRules(
     Map<String, Map<String, int>> pairCounts,
-    Map<String, Set<String>> userBorrowings,
+    Map<String, Set<String>> batchBorrowings,
     double minSupport,
     double minConfidence,
     double minLift,
   ) {
     List<AssociationRule> rules = [];
 
-    // Calculate total number of transactions (users)
-    final totalTransactions = userBorrowings.length;
+    // Calculate total number of transactions (batches)
+    final totalTransactions = batchBorrowings.length;
 
     // Count individual item frequencies
     Map<String, int> itemCounts = {};
-    for (var items in userBorrowings.values) {
+    for (var items in batchBorrowings.values) {
       for (var item in items) {
         itemCounts.update(item, (count) => count + 1, ifAbsent: () => 1);
       }
@@ -258,19 +261,19 @@ class AssociationMiningService {
   /// Get borrowing pattern statistics
   static Future<Map<String, dynamic>> getBorrowingPatternStats() async {
     try {
-      final userBorrowings = await _getUserBorrowingPatterns();
+      final batchBorrowings = await _getBatchBorrowingPatterns();
       final rules = await findAssociationRules();
 
       return {
-        'totalUsers': userBorrowings.length,
+        'totalBatches': batchBorrowings.length,
         'totalRules': rules.length,
-        'averageItemsPerUser':
-            userBorrowings.isEmpty
+        'averageItemsPerBatch':
+            batchBorrowings.isEmpty
                 ? 0.0
-                : userBorrowings.values
+                : batchBorrowings.values
                         .map((items) => items.length)
                         .reduce((a, b) => a + b) /
-                    userBorrowings.length,
+                    batchBorrowings.length,
         'strongestRule':
             rules.isNotEmpty
                 ? {
