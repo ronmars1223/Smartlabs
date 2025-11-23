@@ -1,6 +1,7 @@
 // lib/home/service/association_mining_service.dart
 import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/foundation.dart';
+import 'borrow_history_service.dart';
 
 class AssociationRule {
   final String itemA;
@@ -73,8 +74,22 @@ class AssociationMiningService {
   }
 
   /// Get borrowing patterns grouped by batchId
+  /// Uses history storage if available, falls back to borrow_requests
   /// Only considers batch borrow requests (requests with batchId field)
   static Future<Map<String, Set<String>>> _getBatchBorrowingPatterns() async {
+    // Try to use history storage first (better performance, persistent data)
+    try {
+      final historyPatterns = await BorrowHistoryService.getHistoricalBatchPatterns();
+      if (historyPatterns.isNotEmpty) {
+        debugPrint('📚 Using history storage for association rules (${historyPatterns.length} batches)');
+        return historyPatterns;
+      }
+    } catch (e) {
+      debugPrint('⚠️ History service not available, using borrow_requests: $e');
+    }
+
+    // Fallback to borrow_requests (backward compatibility)
+    debugPrint('📋 Using borrow_requests for association rules (fallback)');
     final snapshot = await _database.ref().child('borrow_requests').get();
 
     Map<String, Set<String>> batchBorrowings = {};

@@ -4,6 +4,7 @@ import 'package:firebase_database/firebase_database.dart';
 import '../form_page.dart';
 import 'notification_service.dart';
 import 'laboratory_service.dart';
+import 'borrow_history_service.dart';
 
 class FormService {
   Future<DateTime?> selectDate(
@@ -115,6 +116,16 @@ class FormService {
           widget.categoryId,
           quantity,
           increment: true,
+        ),
+      );
+
+      // Archive to history storage for association rule mining
+      // Note: Only batch requests (with batchId) are archived
+      // Single requests from form_service don't have batchId, so they won't be archived
+      tasks.add(
+        BorrowHistoryService.archiveApprovedRequest(
+          requestId,
+          borrowRequestData,
         ),
       );
 

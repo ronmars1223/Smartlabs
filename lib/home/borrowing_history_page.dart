@@ -3,6 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_database/firebase_database.dart';
 import 'package:intl/intl.dart';
 import 'service/due_date_reminder_service.dart';
+import 'service/borrow_history_service.dart';
 
 class BorrowingHistoryPage extends StatefulWidget {
   const BorrowingHistoryPage({super.key});
@@ -151,13 +152,17 @@ class _BorrowingHistoryPageState extends State<BorrowingHistoryPage>
       final status = requestData['status'] as String?;
 
       // Update request status
+      final updatedRequestData = Map<String, dynamic>.from(requestData);
+      updatedRequestData['returnedAt'] = DateTime.now().toIso8601String();
+      updatedRequestData['status'] = 'returned';
+
       await FirebaseDatabase.instance
           .ref()
           .child('borrow_requests')
           .child(requestId)
           .update({
-            'returnedAt': DateTime.now().toIso8601String(),
-            'status': 'returned',
+            'returnedAt': updatedRequestData['returnedAt'],
+            'status': updatedRequestData['status'],
           });
 
       // Decrement quantity_borrowed if the request was approved/released
@@ -169,6 +174,12 @@ class _BorrowingHistoryPageState extends State<BorrowingHistoryPage>
           increment: false,
         );
       }
+
+      // Archive to history storage for association rule mining
+      await BorrowHistoryService.archiveReturnedRequest(
+        requestId,
+        updatedRequestData,
+      );
 
       _showSnackBar('Item marked as returned successfully!', isError: false);
       _loadBorrowingHistory();

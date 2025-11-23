@@ -5,6 +5,7 @@ import 'package:app/home/service/cart_service.dart';
 import 'package:app/home/service/teacher_service.dart';
 import 'package:app/home/service/laboratory_service.dart';
 import 'package:app/home/service/notification_service.dart';
+import 'package:app/home/service/borrow_history_service.dart';
 import 'package:app/home/widgets/signature_pad.dart';
 import 'package:intl/intl.dart';
 
@@ -217,6 +218,15 @@ class _BatchBorrowFormPageState extends State<BatchBorrowFormPage> {
             item.quantity,
             increment: true,
           ));
+
+          // Archive to history storage for association rule mining
+          // Only batch requests (with batchId) are archived
+          requests.add(
+            BorrowHistoryService.archiveApprovedRequest(
+              requestId,
+              borrowRequestData,
+            ),
+          );
         }
       }
 

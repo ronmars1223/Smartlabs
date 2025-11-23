@@ -3,6 +3,7 @@ import 'package:firebase_database/firebase_database.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import 'service/notification_service.dart';
+import 'service/borrow_history_service.dart';
 
 class RequestPage extends StatefulWidget {
   const RequestPage({super.key});
@@ -162,6 +163,17 @@ class _RequestPageState extends State<RequestPage>
             request['categoryId'],
             request['quantity'],
             increment: true,
+          ),
+        );
+
+        // Archive to history storage for association rule mining
+        // Get full request data including updated status
+        final fullRequestData = Map<String, dynamic>.from(request);
+        fullRequestData.addAll(updateData);
+        updates.add(
+          BorrowHistoryService.archiveApprovedRequest(
+            requestId,
+            fullRequestData,
           ),
         );
       } else if (status == 'rejected') {
